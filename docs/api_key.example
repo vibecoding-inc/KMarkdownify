@@ -1,0 +1,11 @@
+# Replace this line with your actual OpenRouter API key
+# Get your key from: https://openrouter.ai/keys
+# 
+# After adding your key:
+# 1. Remove these comment lines
+# 2. Save the file as: ~/.config/kmarkdownify/api_key
+# 3. Set proper permissions: chmod 600 ~/.config/kmarkdownify/api_key
+#
+# Example format: sk-or-v1-abc123def456...
+
+YOUR_API_KEY_HERE

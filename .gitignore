@@ -1,0 +1,33 @@
+# Build artifacts
+*.tar.gz
+*.pkg.tar.zst
+*.pkg.tar.xz
+pkg/
+src/
+
+# Test files (but keep documentation)
+test*.pdf
+test*.md
+sample*.pdf
+sample*.md
+example*.pdf
+# Keep all other .md files (documentation)
+
+# Configuration
+.config/
+
+# Temporary files
+*.tmp
+*.temp
+*~
+.*.swp
+.*.swo
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.iml
