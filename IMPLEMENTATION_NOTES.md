@@ -62,16 +62,22 @@ API Request → Parse Response → Save Markdown → Notify User
 - **Max Tokens**: 8000 (approximately 6000 words)
 
 #### JSON Construction
-Uses `jq -n` with `--arg` parameters for safe JSON construction:
+Uses `jq -Rs` with stdin to avoid command-line argument length limits:
 ```bash
-JSON_PAYLOAD=$(jq -n \
+JSON_PAYLOAD=$(printf '%s' "$PDF_BASE64" | jq -Rs \
     --arg model "$MODEL" \
-    --arg pdf_data "data:application/pdf;base64,$PDF_BASE64" \
+    --arg prompt "$PROMPT_TEXT" \
     '{ ... }'
 )
 ```
 
-This approach prevents JSON injection attacks and properly escapes special characters.
+**Key Changes (v2.1.0)**:
+- Prior versions passed the base64-encoded PDF as a command-line argument (`--arg pdf_data`)
+- This caused "Argument list too long" errors for large PDFs due to system ARG_MAX limits
+- Now uses stdin with `jq -Rs` (raw input, slurp mode) to read the base64 data
+- The base64 string is piped through `printf` to `jq`, which reads it as a single string
+- This eliminates command-line length restrictions and supports PDFs of any size
+- Prevents JSON injection attacks and properly escapes special characters
 
 #### Response Processing
 1. Check for API error responses
@@ -86,7 +92,13 @@ This approach prevents JSON injection attacks and properly escapes special chara
 **Installation Paths**:
 - Script: `/usr/local/bin/kmarkdownify.sh` (mode 755)
 - Desktop file: `/usr/share/kio/servicemenus/kmarkdownify.desktop` (mode 644)
+- Prompt files: `/usr/share/kmarkdownify/prompts/` (Arch) or `/usr/local/share/kmarkdownify/prompts/` (manual)
 - Documentation: `/usr/share/doc/kmarkdownify/`
+
+**Installed Files (v2.1.0+)**:
+- `default_prompt.txt` - Simple text extraction without metadata
+- `metadata_prompt.txt` - Text extraction with metadata and YAML frontmatter
+- `config.example` - Example configuration file
 
 **Dependencies**:
 - Required: bash, curl, jq, coreutils, file
@@ -193,7 +205,28 @@ The script now supports a flexible configuration file at `~/.config/kmarkdownify
 - **MAX_TOKENS**: Set maximum response length
 - **EXTRACT_METADATA**: Enable/disable metadata extraction
 - **METADATA_FIELDS**: Customize which metadata fields to extract
-- **CUSTOM_PROMPT**: Override default prompts with custom instructions
+- **SYSTEM_PROMPT_FILE**: Path to custom prompt file (v2.1.0+)
+- **CUSTOM_PROMPT**: Override default prompts with inline custom instructions
+
+### Prompt System (v2.1.0+)
+The script supports three ways to specify prompts, with priority order:
+
+1. **CUSTOM_PROMPT** (highest priority) - Inline prompt in config file
+2. **SYSTEM_PROMPT_FILE** - Path to custom prompt file
+   - Can be absolute path or relative to `~/.config/kmarkdownify/`
+   - Supports `{METADATA_FIELDS}` placeholder for field substitution
+3. **Built-in prompt files** (default)
+   - `default_prompt.txt` - Used when EXTRACT_METADATA=false
+   - `metadata_prompt.txt` - Used when EXTRACT_METADATA=true
+   - Located in `/usr/share/kmarkdownify/prompts/` or `/usr/local/share/kmarkdownify/prompts/`
+   - Fallback to inline prompts if files not found
+
+**Prompt File Discovery**:
+The script automatically searches for prompt files in:
+1. `/usr/share/kmarkdownify/prompts/` (Arch Linux package installation)
+2. `/usr/local/share/kmarkdownify/prompts/` (Manual installation)
+3. `{SCRIPT_DIR}/prompts/` (Development/local usage)
+4. Falls back to inline prompts if no files found
 
 ### Metadata Extraction
 When enabled (default), the script:
@@ -218,9 +251,11 @@ Due Date: 2025-11-15
 
 ### Prompt Modes
 Three operational modes based on configuration:
-1. **Custom Prompt Mode**: When CUSTOM_PROMPT is set
-2. **Metadata Extraction Mode**: When EXTRACT_METADATA=true (default)
-3. **Simple Extraction Mode**: When EXTRACT_METADATA=false
+1. **Custom Inline Prompt Mode**: When CUSTOM_PROMPT is set (highest priority)
+2. **Custom File Prompt Mode**: When SYSTEM_PROMPT_FILE is set
+3. **Built-in Prompt Mode**: Uses default or metadata prompt files based on EXTRACT_METADATA
+   - **Metadata Extraction Mode**: When EXTRACT_METADATA=true (default)
+   - **Simple Extraction Mode**: When EXTRACT_METADATA=false
 
 ### Backward Compatibility
 - Works without config file (uses sensible defaults)
@@ -281,7 +316,17 @@ Three operational modes based on configuration:
 ---
 
 Implementation completed: 2025-11-09
-Version: 2.0.0
+Version: 2.1.0
+
+**Changelog for v2.1.0:**
+- **CRITICAL FIX**: Resolved "Argument list too long" error for large PDFs
+- Changed jq JSON construction to use stdin instead of command-line arguments
+- Extracted system prompts into separate files (default_prompt.txt, metadata_prompt.txt)
+- Added SYSTEM_PROMPT_FILE configuration option for custom prompt files
+- Implemented prompt file discovery system with fallback locations
+- Added support for {METADATA_FIELDS} placeholder in custom prompts
+- Updated PKGBUILD to install prompt files
+- Improved documentation with prompt customization guide
 
 **Changelog for v2.0.0:**
 - Added metadata extraction with YAML frontmatter support
