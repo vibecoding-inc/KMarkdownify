@@ -1,5 +1,10 @@
 # KMarkdownify
 
+[![CI](https://github.com/profiluefter/KMarkdownify/actions/workflows/ci.yml/badge.svg)](https://github.com/profiluefter/KMarkdownify/actions/workflows/ci.yml)
+[![ShellCheck](https://github.com/profiluefter/KMarkdownify/actions/workflows/shellcheck.yml/badge.svg)](https://github.com/profiluefter/KMarkdownify/actions/workflows/shellcheck.yml)
+[![PKGBUILD](https://github.com/profiluefter/KMarkdownify/actions/workflows/pkgbuild.yml/badge.svg)](https://github.com/profiluefter/KMarkdownify/actions/workflows/pkgbuild.yml)
+[![Markdown Lint](https://github.com/profiluefter/KMarkdownify/actions/workflows/markdown-lint.yml/badge.svg)](https://github.com/profiluefter/KMarkdownify/actions/workflows/markdown-lint.yml)
+
 A Plasma Dolphin service menu entry that converts PDF files to Markdown using OpenRouter API with Mistral OCR.
 
 ## Features
@@ -166,6 +171,18 @@ OpenRouter offers a free tier with credits for testing. The Mistral Pixtral Larg
 # Check the output
 cat /path/to/test.md
 ```
+
+### Continuous Integration
+
+This project uses GitHub Actions for automated testing and validation:
+
+- **CI Pipeline**: Validates project files, checks dependencies, and tests script syntax
+- **ShellCheck**: Static analysis of shell scripts for potential issues
+- **PKGBUILD Validation**: Ensures Arch Linux package builds correctly
+- **Markdown Linting**: Maintains documentation quality
+- **Automated Releases**: Builds and publishes packages when tags are pushed
+
+See [`.github/workflows/README.md`](.github/workflows/README.md) for detailed workflow documentation.
 
 ### Modifying the Conversion Prompt
 
