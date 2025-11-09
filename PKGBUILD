@@ -1,6 +1,6 @@
 # Maintainer: Your Name <your.email@example.com>
 pkgname=kmarkdownify
-pkgver=1.0.0
+pkgver=2.0.0
 pkgrel=1
 pkgdesc="Plasma Dolphin service menu for converting PDF files to Markdown using OpenRouter API with Mistral OCR"
 arch=('any')
