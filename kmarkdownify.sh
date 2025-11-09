@@ -198,8 +198,11 @@ else
 fi
 
 # Use a more robust method to build JSON payload that avoids argument list length limits
-# We pass the PDF base64 data via stdin to avoid command-line length restrictions
-JSON_PAYLOAD=$(printf '%s' "$PDF_BASE64" | jq -Rs \
+# We write the JSON payload to a temporary file to avoid both command-line and environment variable size limits
+TMPFILE=$(mktemp)
+trap 'rm -f "$TMPFILE"' EXIT
+
+printf '%s' "$PDF_BASE64" | jq -Rs \
     --arg model "$MODEL" \
     --arg prompt "$PROMPT_TEXT" \
     --arg temperature "$TEMPERATURE" \
@@ -225,18 +228,17 @@ JSON_PAYLOAD=$(printf '%s' "$PDF_BASE64" | jq -Rs \
         ],
         "temperature": ($temperature | tonumber),
         "max_tokens": $max_tokens
-    }'
-)
+    }' > "$TMPFILE"
 
 # Make API request
-# Use stdin to avoid argument list length limits with large payloads
+# Use temporary file to avoid argument list length limits with large payloads
 echo "Sending request to OpenRouter API..."
-RESPONSE=$(printf '%s' "$JSON_PAYLOAD" | curl -s -X POST "$API_ENDPOINT" \
+RESPONSE=$(curl -s -X POST "$API_ENDPOINT" \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $API_KEY" \
     -H "HTTP-Referer: https://github.com/profiluefter/KMarkdownify" \
     -H "X-Title: KMarkdownify" \
-    --data-binary @-)
+    --data-binary @"$TMPFILE")
 
 # Check for API errors
 if echo "$RESPONSE" | jq -e '.error' > /dev/null 2>&1; then

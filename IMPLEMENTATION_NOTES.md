@@ -62,22 +62,26 @@ API Request → Parse Response → Save Markdown → Notify User
 - **Max Tokens**: 8000 (approximately 6000 words)
 
 #### JSON Construction
-Uses `jq -Rs` with stdin to avoid command-line argument length limits:
+Uses `jq -Rs` with stdin and writes to a temporary file to avoid all size limits:
 ```bash
-JSON_PAYLOAD=$(printf '%s' "$PDF_BASE64" | jq -Rs \
+TMPFILE=$(mktemp)
+trap 'rm -f "$TMPFILE"' EXIT
+
+printf '%s' "$PDF_BASE64" | jq -Rs \
     --arg model "$MODEL" \
     --arg prompt "$PROMPT_TEXT" \
-    '{ ... }'
-)
+    '{ ... }' > "$TMPFILE"
 ```
 
 **Key Changes (v2.1.0)**:
 - Prior versions passed the base64-encoded PDF as a command-line argument (`--arg pdf_data`)
 - This caused "Argument list too long" errors for large PDFs due to system ARG_MAX limits
-- Now uses stdin with `jq -Rs` (raw input, slurp mode) to read the base64 data
-- The base64 string is piped through `printf` to `jq`, which reads it as a single string
-- The resulting JSON payload is then piped to `curl` using `--data-binary @-` to avoid curl argument length limits
-- This two-stage stdin approach eliminates all command-line length restrictions and supports PDFs of any size
+- Now uses a temporary file approach to eliminate all size restrictions:
+  1. PDF base64 data is piped to `jq -Rs` (raw input, slurp mode) via stdin
+  2. jq constructs the JSON payload and writes it directly to a temporary file
+  3. curl reads the JSON payload from the temporary file using `--data-binary @"$TMPFILE"`
+- This approach avoids command-line length limits, environment variable size limits, and pipe buffer issues
+- The temporary file is automatically cleaned up on script exit using a trap
 - Prevents JSON injection attacks and properly escapes special characters
 
 #### Response Processing
@@ -322,8 +326,10 @@ Version: 2.1.0
 **Changelog for v2.1.0:**
 - **CRITICAL FIX**: Resolved "Argument list too long" error for large PDFs in both jq and curl
 - Changed jq JSON construction to use stdin instead of command-line arguments
-- Changed curl to receive JSON payload via stdin with `--data-binary @-` instead of `-d` flag
+- Changed curl to receive JSON payload from a temporary file using `--data-binary @"$TMPFILE"`
+- Temporary file approach eliminates command-line, environment variable, and pipe buffer size limits
 - Extracted system prompts into separate files (default_prompt.txt, metadata_prompt.txt)
+- Moved prompt files to repository root for proper PKGBUILD source handling
 - Added SYSTEM_PROMPT_FILE configuration option for custom prompt files
 - Implemented prompt file discovery system with fallback locations
 - Added support for {METADATA_FIELDS} placeholder in custom prompts

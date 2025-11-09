@@ -13,12 +13,14 @@ optdepends=(
 )
 source=("kmarkdownify.sh"
         "kmarkdownify.desktop"
-        "config.example")
+        "config.example"
+        "default_prompt.txt"
+        "metadata_prompt.txt")
 sha256sums=('SKIP'
             'SKIP'
+            'SKIP'
+            'SKIP'
             'SKIP')
-# Note: Prompt files are installed from the prompts/ directory in the repository.
-# They don't need to be listed in source array as makepkg copies the entire directory structure.
 
 package() {
     # Install the shell script
@@ -29,9 +31,9 @@ package() {
         "${pkgdir}/usr/share/kio/servicemenus/kmarkdownify.desktop"
     
     # Install prompt files
-    install -Dm644 "${srcdir}/prompts/default_prompt.txt" \
+    install -Dm644 "${srcdir}/default_prompt.txt" \
         "${pkgdir}/usr/share/${pkgname}/prompts/default_prompt.txt"
-    install -Dm644 "${srcdir}/prompts/metadata_prompt.txt" \
+    install -Dm644 "${srcdir}/metadata_prompt.txt" \
         "${pkgdir}/usr/share/${pkgname}/prompts/metadata_prompt.txt"
     
     # Install example configuration file
