@@ -5,10 +5,13 @@
 pkg/
 src/
 
-# Test files
-*.pdf
-*.md
-!README.md
+# Test files (but keep documentation)
+test*.pdf
+test*.md
+sample*.pdf
+sample*.md
+example*.pdf
+# Keep all other .md files (documentation)
 
 # Configuration
 .config/
