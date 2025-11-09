@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Service
+ServiceTypes=KonqPopupMenu/Plugin
+MimeType=application/pdf;
+Actions=ConvertToMarkdown;
+X-KDE-Priority=TopLevel
+X-KDE-Submenu=KMarkdownify
+X-KDE-ServiceTypes=KonqPopupMenu/Plugin
+X-KDE-Icon=document-edit
+
+[Desktop Action ConvertToMarkdown]
+Name=Convert to Markdown
+Name[en_US]=Convert to Markdown
+Icon=text-markdown
+Exec=/usr/local/bin/kmarkdownify.sh %f

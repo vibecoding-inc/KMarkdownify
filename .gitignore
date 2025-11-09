@@ -1,0 +1,30 @@
+# Build artifacts
+*.tar.gz
+*.pkg.tar.zst
+*.pkg.tar.xz
+pkg/
+src/
+
+# Test files
+*.pdf
+*.md
+!README.md
+
+# Configuration
+.config/
+
+# Temporary files
+*.tmp
+*.temp
+*~
+.*.swp
+.*.swo
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.iml
