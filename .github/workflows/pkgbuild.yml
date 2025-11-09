@@ -53,13 +53,27 @@ jobs:
           source PKGBUILD
 
           # Check required variables
-          [ -n "$pkgname"] && echo "✓ pkgname is set: $pkgname" || { echo "✗ pkgname is missing"; exit 1; }
-          [ -n "$pkgver"] && echo "✓ pkgver is set: $pkgver" || { echo "✗ pkgver is missing"; exit 1; }
-          [ -n "$pkgrel"] && echo "✓ pkgrel is set: $pkgrel" || { echo "✗ pkgrel is missing"; exit 1; }
-          [ -n "$pkgdesc"] && echo "✓ pkgdesc is set" || { echo "✗ pkgdesc is missing"; exit 1; }
-          [ -n "$arch"] && echo "✓ arch is set: ${arch[*]}" || { echo "✗ arch is missing"; exit 1; }
-          [ -n "$url"] && echo "✓ url is set: $url" || { echo "✗ url is missing"; exit 1; }
-          [ -n "$license"] && echo "✓ license is set: ${license[*]}" || { echo "✗ license is missing"; exit 1; }
+          [ -n "$pkgname" ] && echo "✓ pkgname is set: $pkgname" || {
+            echo "✗ pkgname is missing"; exit 1;
+          }
+          [ -n "$pkgver" ] && echo "✓ pkgver is set: $pkgver" || {
+            echo "✗ pkgver is missing"; exit 1;
+          }
+          [ -n "$pkgrel" ] && echo "✓ pkgrel is set: $pkgrel" || {
+            echo "✗ pkgrel is missing"; exit 1;
+          }
+          [ -n "$pkgdesc" ] && echo "✓ pkgdesc is set" || {
+            echo "✗ pkgdesc is missing"; exit 1;
+          }
+          [ -n "$arch" ] && echo "✓ arch is set: ${arch[*]}" || {
+            echo "✗ arch is missing"; exit 1;
+          }
+          [ -n "$url" ] && echo "✓ url is set: $url" || {
+            echo "✗ url is missing"; exit 1;
+          }
+          [ -n "$license" ] && echo "✓ license is set: ${license[*]}" || {
+            echo "✗ license is missing"; exit 1;
+          }
 
           echo "✓ All required PKGBUILD fields are present"
 
