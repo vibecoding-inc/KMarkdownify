@@ -135,8 +135,8 @@ The script sends a POST request with:
 
 ### Installation Paths
 - Script: `/usr/local/bin/kmarkdownify.sh` (mode 755)
-- Service menu (KDE 5): `/usr/share/kservices5/ServiceMenus/kmarkdownify.desktop`
-- Service menu (KDE 6): `~/.local/share/kio/servicemenus/kmarkdownify.desktop`
+- Service menu (system-wide): `/usr/share/kio/servicemenus/kmarkdownify.desktop`
+- Service menu (user-only): `~/.local/share/kio/servicemenus/kmarkdownify.desktop`
 - Documentation: `/usr/share/doc/kmarkdownify/`
 
 ### Configuration

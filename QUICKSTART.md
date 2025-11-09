@@ -32,7 +32,7 @@ sudo pacman -S bash curl jq coreutils file kdialog    # Arch
 git clone https://github.com/profiluefter/KMarkdownify.git
 cd KMarkdownify
 sudo install -Dm755 kmarkdownify.sh /usr/local/bin/kmarkdownify.sh
-sudo install -Dm644 kmarkdownify.desktop /usr/share/kservices5/ServiceMenus/kmarkdownify.desktop
+sudo install -Dm644 kmarkdownify.desktop /usr/share/kio/servicemenus/kmarkdownify.desktop
 
 # 3. Refresh KDE menus
 kbuildsycoca5 --noincremental

@@ -13,10 +13,10 @@ Create a Plasma Dolphin Service Menu entry for a program that converts PDF files
 **Purpose**: Provides right-click context menu integration in KDE Dolphin file manager.
 
 **Key Design Decisions**:
-- Uses KDE 5 service menu format
+- Uses KDE service menu format
 - Filters by MIME type `application/pdf` to only show for PDF files
 - Uses `%f` placeholder for single file selection
-- Placed in `/usr/share/kservices5/ServiceMenus/` for system-wide availability
+- Placed in `/usr/share/kio/servicemenus/` for system-wide availability
 - Alternative location: `~/.local/share/kio/servicemenus/` for per-user installation
 
 **Technical Details**:
@@ -85,7 +85,7 @@ This approach prevents JSON injection attacks and properly escapes special chara
 
 **Installation Paths**:
 - Script: `/usr/local/bin/kmarkdownify.sh` (mode 755)
-- Desktop file: `/usr/share/kservices5/ServiceMenus/kmarkdownify.desktop` (mode 644)
+- Desktop file: `/usr/share/kio/servicemenus/kmarkdownify.desktop` (mode 644)
 - Documentation: `/usr/share/doc/kmarkdownify/`
 
 **Dependencies**:
@@ -248,7 +248,7 @@ Three operational modes based on configuration:
 ### Service Menu Not Appearing
 1. Run `kbuildsycoca5 --noincremental`
 2. Restart Dolphin: `killall dolphin`
-3. Check file location: `/usr/share/kservices5/ServiceMenus/kmarkdownify.desktop`
+3. Check file location: `/usr/share/kio/servicemenus/kmarkdownify.desktop`
 4. Try user location: `~/.local/share/kio/servicemenus/`
 
 ### Script Errors

@@ -72,11 +72,8 @@ sudo pacman -S bash curl jq coreutils file kdialog libnotify
 # Install the shell script
 sudo install -Dm755 kmarkdownify.sh /usr/local/bin/kmarkdownify.sh
 
-# Install the service menu (KDE 5)
-sudo install -Dm644 kmarkdownify.desktop /usr/share/kservices5/ServiceMenus/kmarkdownify.desktop
-
-# For KDE 6/Plasma 6, use this path instead:
-# sudo install -Dm644 kmarkdownify.desktop ~/.local/share/kio/servicemenus/kmarkdownify.desktop
+# Install the service menu
+sudo install -Dm644 kmarkdownify.desktop /usr/share/kio/servicemenus/kmarkdownify.desktop
 ```
 
 4. Refresh KDE service menus:
