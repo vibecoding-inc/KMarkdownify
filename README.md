@@ -7,8 +7,12 @@ A Plasma Dolphin service menu entry that converts PDF files to Markdown using Op
 - 🐬 **Seamless Dolphin Integration** - Right-click context menu for PDF files
 - 🤖 **AI-Powered OCR** - Uses Mistral's Pixtral Large model for accurate text extraction
 - 📝 **Clean Markdown Output** - Preserves document structure, headings, lists, and formatting
+- 📊 **Metadata Extraction** - Automatically extracts Title, Author, Course, Due Date from PDFs
+- 🎯 **YAML Frontmatter** - Formats metadata as YAML frontmatter in markdown output
+- ⚙️ **Highly Configurable** - Customize model, temperature, prompts, and metadata fields
 - 🔔 **User-Friendly Notifications** - KDialog and fallback notification support
 - ⚡ **Simple Setup** - Easy configuration and installation
+- 🛡️ **Graceful Degradation** - Uses 'N/A' for metadata fields that cannot be found
 
 ## Requirements
 
@@ -101,6 +105,69 @@ echo "YOUR_API_KEY_HERE" > ~/.config/kmarkdownify/api_key
 chmod 600 ~/.config/kmarkdownify/api_key
 ```
 
+### Advanced Configuration (Optional)
+
+KMarkdownify supports advanced configuration through a config file. This allows you to customize:
+- AI model selection
+- Temperature and token limits
+- Metadata extraction behavior
+- Custom prompts
+
+**Setup advanced configuration:**
+
+```bash
+# Copy the example configuration file
+cp /usr/share/doc/kmarkdownify/config.example ~/.config/kmarkdownify/config
+
+# Or if you installed manually:
+cp config.example ~/.config/kmarkdownify/config
+
+# Edit the configuration file
+nano ~/.config/kmarkdownify/config
+```
+
+**Configuration options:**
+
+- `MODEL`: Choose the AI model (default: `mistralai/pixtral-large-latest`)
+- `TEMPERATURE`: Control output consistency (0.0-1.0, default: 0.1)
+- `MAX_TOKENS`: Maximum response length (default: 8000)
+- `EXTRACT_METADATA`: Enable/disable metadata extraction (default: true)
+- `METADATA_FIELDS`: Comma-separated list of fields to extract (default: "Title,Author,Course,Due Date")
+- `CUSTOM_PROMPT`: Override the default prompt with your own
+
+**Example: Disable metadata extraction**
+```bash
+echo "EXTRACT_METADATA=false" >> ~/.config/kmarkdownify/config
+```
+
+**Example: Add custom metadata fields**
+```bash
+echo "METADATA_FIELDS=Title,Author,Course,Due Date,Student ID,Professor" >> ~/.config/kmarkdownify/config
+```
+
+### Metadata Extraction
+
+When metadata extraction is enabled (default), KMarkdownify will:
+1. Analyze the PDF for common metadata fields (Title, Author, Course, Due Date)
+2. Format the metadata as YAML frontmatter at the beginning of the markdown file
+3. Use "N/A" for any fields that cannot be found
+4. Follow the metadata with the full document content
+
+**Example output with metadata:**
+```markdown
+---
+Title: Assignment 1 - Data Structures
+Author: John Doe
+Course: CS 101
+Due Date: 2025-11-15
+---
+
+# Assignment 1: Data Structures
+
+## Question 1
+...
+```
+
 ## Usage
 
 1. **Open Dolphin File Manager**
@@ -123,11 +190,13 @@ The converted Markdown file will be saved as `/path/to/your/file.md`
 ## How It Works
 
 1. The script receives the PDF file path from Dolphin's context menu
-2. Encodes the PDF file to base64 format
-3. Sends the PDF to OpenRouter API using Mistral's Pixtral Large model
-4. The AI model extracts and converts the text to Markdown format
-5. Saves the result as a `.md` file in the same directory
-6. Shows a notification upon completion
+2. Loads configuration from `~/.config/kmarkdownify/config` (if present)
+3. Encodes the PDF file to base64 format
+4. Sends the PDF to OpenRouter API using the configured AI model (default: Mistral's Pixtral Large)
+5. The AI model performs OCR and extracts metadata (Title, Author, Course, Due Date)
+6. Converts the text to Markdown format with YAML frontmatter containing the metadata
+7. Saves the result as a `.md` file in the same directory
+8. Shows a notification upon completion
 
 ## API Costs
 

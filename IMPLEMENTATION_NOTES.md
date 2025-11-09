@@ -173,16 +173,59 @@ makepkg -si  # Build and install with dependencies
 
 Potential improvements for future versions:
 
-1. **Batch Processing**: Process multiple PDFs at once
-2. **Progress Bar**: For large files
-3. **Custom Output Path**: Allow user to specify output location
-4. **Model Selection**: Choose different OCR models
-5. **Quality Settings**: Adjust temperature and max_tokens
+1. ~~**Metadata Extraction**: Extract Title, Author, Course, Due Date~~ ✅ Implemented in v2.0.0
+2. ~~**Configurable Settings**: Allow model, temperature, and prompt customization~~ ✅ Implemented in v2.0.0
+3. **Batch Processing**: Process multiple PDFs at once
+4. **Progress Bar**: For large files
+5. **Custom Output Path**: Allow user to specify output location
 6. **Retry Logic**: Automatic retry on API failures
 7. **Caching**: Cache conversions to avoid re-processing
 8. **GUI Configuration**: Settings dialog for API key and preferences
 9. **Language Detection**: Optimize prompt based on detected language
 10. **Page Selection**: Convert only specific pages
+
+## Version 2.0.0 Features (Implemented)
+
+### Configuration System
+The script now supports a flexible configuration file at `~/.config/kmarkdownify/config`:
+- **MODEL**: Choose different AI models
+- **TEMPERATURE**: Control output consistency (0.0-1.0)
+- **MAX_TOKENS**: Set maximum response length
+- **EXTRACT_METADATA**: Enable/disable metadata extraction
+- **METADATA_FIELDS**: Customize which metadata fields to extract
+- **CUSTOM_PROMPT**: Override default prompts with custom instructions
+
+### Metadata Extraction
+When enabled (default), the script:
+1. Extracts specified metadata fields from PDFs
+2. Formats them as YAML frontmatter
+3. Uses "N/A" for fields that cannot be found
+4. Supports customizable field lists
+
+Default fields: Title, Author, Course, Due Date
+
+Example output:
+```markdown
+---
+Title: Assignment 1
+Author: John Doe
+Course: CS 101
+Due Date: 2025-11-15
+---
+
+# Document content...
+```
+
+### Prompt Modes
+Three operational modes based on configuration:
+1. **Custom Prompt Mode**: When CUSTOM_PROMPT is set
+2. **Metadata Extraction Mode**: When EXTRACT_METADATA=true (default)
+3. **Simple Extraction Mode**: When EXTRACT_METADATA=false
+
+### Backward Compatibility
+- Works without config file (uses sensible defaults)
+- Existing installations continue to work
+- Optional configuration enhances capabilities
 
 ## Compatibility
 
@@ -238,4 +281,13 @@ Potential improvements for future versions:
 ---
 
 Implementation completed: 2025-11-09
-Version: 1.0.0
+Version: 2.0.0
+
+**Changelog for v2.0.0:**
+- Added metadata extraction with YAML frontmatter support
+- Implemented configuration file system
+- Added customizable model selection
+- Added configurable temperature and max_tokens
+- Added support for custom prompts
+- Added customizable metadata fields
+- Maintained backward compatibility

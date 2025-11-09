@@ -57,6 +57,32 @@ chmod 600 ~/.config/kmarkdownify/api_key
 
 Replace `YOUR_API_KEY_HERE` with your actual key!
 
+### Step 3: (Optional) Customize Configuration
+
+For advanced features like custom metadata fields or different AI models:
+
+```bash
+# Copy example configuration
+cp /usr/share/doc/kmarkdownify/config.example ~/.config/kmarkdownify/config
+
+# Or if manually installed:
+cp config.example ~/.config/kmarkdownify/config
+
+# Edit to customize
+nano ~/.config/kmarkdownify/config
+```
+
+**What you can customize:**
+- AI model selection
+- Metadata extraction (Title, Author, Course, Due Date, etc.)
+- Temperature and token limits
+- Custom conversion prompts
+
+**Default behavior (without config file):**
+- Uses Mistral Pixtral Large model
+- Extracts metadata (Title, Author, Course, Due Date)
+- Formats output with YAML frontmatter
+
 ## First Use
 
 1. **Open Dolphin** file manager

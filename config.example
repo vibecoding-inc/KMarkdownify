@@ -1,0 +1,35 @@
+# KMarkdownify Configuration File
+# This file should be copied to ~/.config/kmarkdownify/config
+# and customized according to your needs.
+
+# OpenRouter API Model
+# Default: mistralai/pixtral-large-latest (optimized for OCR)
+# Other options: anthropic/claude-3-opus, openai/gpt-4-vision-preview
+MODEL=mistralai/pixtral-large-latest
+
+# API Temperature (0.0-1.0)
+# Lower values = more deterministic/consistent output
+# Higher values = more creative interpretation
+# Default: 0.1 (recommended for OCR tasks)
+TEMPERATURE=0.1
+
+# Maximum tokens for response
+# Increase for longer documents
+# Default: 8000 (approximately 6000 words)
+MAX_TOKENS=8000
+
+# Enable metadata extraction
+# When enabled, the system will attempt to extract document metadata
+# (Title, Author, Course, Due Date) and format it as YAML frontmatter
+# Default: true
+EXTRACT_METADATA=true
+
+# Custom conversion prompt (optional)
+# If not set, uses the default prompt with metadata extraction
+# Uncomment and customize to override the default behavior:
+# CUSTOM_PROMPT="Your custom prompt here..."
+
+# Metadata fields to extract (comma-separated)
+# Default: Title,Author,Course,Due Date
+# Add more fields as needed: "Title,Author,Course,Due Date,Student ID,Professor"
+METADATA_FIELDS="Title,Author,Course,Due Date"
