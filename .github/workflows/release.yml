@@ -55,13 +55,13 @@ jobs:
 
       - name: Build package
         run: |
-          sudo -u builder makepkg -sf --noconfirm
+          sudo -u builder bash -c "cd '$PWD' && makepkg -sf --noconfirm"
 
       - name: Run namcap on package
         continue-on-error: true
         run: |
           PKG_FILE=$(ls *.pkg.tar.zst)
-          sudo -u builder namcap "$PKG_FILE" || echo "Namcap found some issues (non-fatal)"
+          sudo -u builder bash -c "cd '$PWD' && namcap '$PKG_FILE'" || echo "Namcap found some issues (non-fatal)"
 
       - name: List built packages
         id: package

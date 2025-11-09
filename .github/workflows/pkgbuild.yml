@@ -51,16 +51,15 @@ jobs:
 
       - name: Validate PKGBUILD syntax
         run: |
-          sudo -u builder bash -c "cd $(pwd) && source PKGBUILD && echo 'PKGBUILD syntax is valid'"
+          sudo -u builder bash -c "cd '$PWD' && source PKGBUILD && echo 'PKGBUILD syntax is valid'"
 
       - name: Run namcap on PKGBUILD
         run: |
-          sudo -u builder bash -c "cd $(pwd) && namcap PKGBUILD"
+          sudo -u builder bash -c "cd '$PWD' && namcap PKGBUILD"
 
       - name: Check PKGBUILD required fields
         run: |
           echo "Checking required PKGBUILD fields..."
-          cd $(pwd)
           source PKGBUILD
 
           # Check required variables
@@ -90,13 +89,12 @@ jobs:
 
       - name: Test package build (dry-run)
         run: |
-          sudo -u builder bash -c "cd $(pwd) && makepkg --nobuild --nodeps"
+          sudo -u builder bash -c "cd '$PWD' && makepkg --nobuild --nodeps"
           echo "✓ Package preparation succeeded"
 
       - name: Verify package files are present
         run: |
           echo "Checking if all source files exist..."
-          cd $(pwd)
           [ -f "kmarkdownify.sh" ] && echo "✓ kmarkdownify.sh exists" || {
             echo "✗ kmarkdownify.sh missing"; exit 1;
           }
