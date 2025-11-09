@@ -55,13 +55,16 @@ jobs:
 
       - name: Build package
         run: |
-          sudo -u builder bash -c "cd '$PWD' && makepkg -sf --noconfirm"
+          cd "${GITHUB_WORKSPACE:-.}"
+          sudo -u builder bash -c "cd '$GITHUB_WORKSPACE' && makepkg -sf --noconfirm"
 
       - name: Run namcap on package
         continue-on-error: true
         run: |
+          cd "${GITHUB_WORKSPACE:-.}"
           PKG_FILE=$(ls *.pkg.tar.zst)
-          sudo -u builder bash -c "cd '$PWD' && namcap '$PKG_FILE'" || echo "Namcap found some issues (non-fatal)"
+          sudo -u builder bash -c "cd '$GITHUB_WORKSPACE' && namcap '$PKG_FILE'" || \
+            echo "Namcap found some issues (non-fatal)"
 
       - name: List built packages
         id: package
