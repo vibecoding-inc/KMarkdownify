@@ -12,8 +12,10 @@ optdepends=(
     'libnotify: for fallback notifications'
 )
 source=("kmarkdownify.sh"
-        "kmarkdownify.desktop")
+        "kmarkdownify.desktop"
+        "config.example")
 sha256sums=('SKIP'
+            'SKIP'
             'SKIP')
 
 package() {
@@ -24,8 +26,9 @@ package() {
     install -Dm644 "${srcdir}/kmarkdownify.desktop" \
         "${pkgdir}/usr/share/kservices5/ServiceMenus/kmarkdownify.desktop"
     
-    # Create directory for API key configuration
-    install -dm755 "${pkgdir}/usr/share/doc/${pkgname}"
+    # Install example configuration file
+    install -Dm644 "${srcdir}/config.example" \
+        "${pkgdir}/usr/share/doc/${pkgname}/config.example"
     
     # Create a README for the package
     cat > "${pkgdir}/usr/share/doc/${pkgname}/README" << 'EOF'
@@ -43,7 +46,11 @@ Setup Instructions:
    echo "YOUR_API_KEY_HERE" > ~/.config/kmarkdownify/api_key
    chmod 600 ~/.config/kmarkdownify/api_key
 
-3. Restart Dolphin or refresh the service menus:
+3. (Optional) Customize configuration:
+   cp /usr/share/doc/kmarkdownify/config.example ~/.config/kmarkdownify/config
+   # Edit the config file to customize model, temperature, metadata extraction, etc.
+
+4. Restart Dolphin or refresh the service menus:
    kbuildsycoca5 --noincremental
 
 Usage:
@@ -53,6 +60,14 @@ Usage:
 2. Navigate to "KMarkdownify" → "Convert to Markdown"
 3. Wait for the conversion to complete
 4. The markdown file will be saved in the same directory with .md extension
+
+Features:
+---------
+
+- Metadata extraction: Automatically extracts Title, Author, Course, Due Date
+- Configurable models and prompts
+- YAML frontmatter support
+- Graceful handling of missing metadata (uses N/A)
 
 Requirements:
 -------------

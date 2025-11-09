@@ -6,10 +6,41 @@
 
 set -euo pipefail
 
-# Configuration
+# Default Configuration
 API_ENDPOINT="https://openrouter.ai/api/v1/chat/completions"
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/kmarkdownify"
+CONFIG_FILE="${CONFIG_DIR}/config"
+API_KEY_FILE="${CONFIG_DIR}/api_key"
+
+# Default values (can be overridden by config file)
 MODEL="mistralai/pixtral-large-latest"
-API_KEY_FILE="${HOME}/.config/kmarkdownify/api_key"
+TEMPERATURE="0.1"
+MAX_TOKENS="8000"
+EXTRACT_METADATA="true"
+METADATA_FIELDS="Title,Author,Course,Due Date"
+CUSTOM_PROMPT=""
+
+# Load configuration file if it exists
+if [ -f "$CONFIG_FILE" ]; then
+    # Source the config file, but only allow safe variable assignments
+    while IFS='=' read -r key value; do
+        # Skip comments and empty lines
+        [[ "$key" =~ ^#.*$ ]] && continue
+        [[ -z "$key" ]] && continue
+        # Remove leading/trailing whitespace
+        key=$(echo "$key" | xargs)
+        value=$(echo "$value" | xargs)
+        # Set variables based on key
+        case "$key" in
+            MODEL) MODEL="$value" ;;
+            TEMPERATURE) TEMPERATURE="$value" ;;
+            MAX_TOKENS) MAX_TOKENS="$value" ;;
+            EXTRACT_METADATA) EXTRACT_METADATA="$value" ;;
+            METADATA_FIELDS) METADATA_FIELDS="$value" ;;
+            CUSTOM_PROMPT) CUSTOM_PROMPT="$value" ;;
+        esac
+    done < "$CONFIG_FILE"
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -91,9 +122,46 @@ PDF_BASE64=$(base64 -w 0 "$PDF_FILE")
 
 # Create JSON payload for API request
 echo "Preparing API request..."
+
+# Build the prompt text based on configuration
+if [ -n "$CUSTOM_PROMPT" ]; then
+    # Use custom prompt if provided
+    PROMPT_TEXT="$CUSTOM_PROMPT"
+elif [ "$EXTRACT_METADATA" = "true" ]; then
+    # Use metadata extraction prompt
+    PROMPT_TEXT="Please analyze this PDF document and extract both metadata and content.
+
+First, extract the following metadata fields if present in the document: ${METADATA_FIELDS}. If a field cannot be found, use 'N/A'.
+
+Then, extract all text content from the PDF and convert it to clean, well-formatted Markdown.
+
+Format your response as follows:
+1. Start with YAML frontmatter containing the metadata (enclosed in --- delimiters)
+2. Follow with the main content in Markdown format
+
+Preserve the document structure including headings, paragraphs, lists, tables, and emphasis. Only return the formatted output without any explanations or additional commentary.
+
+Example format:
+---
+Title: Document Title or N/A
+Author: Author Name or N/A
+Course: Course Name or N/A
+Due Date: Date or N/A
+---
+
+# Document Content Starts Here
+..."
+else
+    # Use simple extraction prompt without metadata
+    PROMPT_TEXT="Please extract all text content from this PDF document and convert it to clean, well-formatted Markdown. Preserve the document structure including headings, paragraphs, lists, tables, and emphasis. Only return the Markdown text without any explanations or additional commentary."
+fi
+
 JSON_PAYLOAD=$(jq -n \
     --arg model "$MODEL" \
     --arg pdf_data "data:application/pdf;base64,$PDF_BASE64" \
+    --arg prompt "$PROMPT_TEXT" \
+    --arg temperature "$TEMPERATURE" \
+    --argjson max_tokens "$MAX_TOKENS" \
     '{
         "model": $model,
         "messages": [
@@ -102,7 +170,7 @@ JSON_PAYLOAD=$(jq -n \
                 "content": [
                     {
                         "type": "text",
-                        "text": "Please extract all text content from this PDF document and convert it to clean, well-formatted Markdown. Preserve the document structure including headings, paragraphs, lists, tables, and emphasis. Only return the Markdown text without any explanations or additional commentary."
+                        "text": $prompt
                     },
                     {
                         "type": "image_url",
@@ -113,8 +181,8 @@ JSON_PAYLOAD=$(jq -n \
                 ]
             }
         ],
-        "temperature": 0.1,
-        "max_tokens": 8000
+        "temperature": ($temperature | tonumber),
+        "max_tokens": $max_tokens
     }'
 )
 
