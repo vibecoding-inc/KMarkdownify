@@ -13,14 +13,12 @@ optdepends=(
 )
 source=("kmarkdownify.sh"
         "kmarkdownify.desktop"
-        "config.example"
-        "prompts/default_prompt.txt"
-        "prompts/metadata_prompt.txt")
+        "config.example")
 sha256sums=('SKIP'
             'SKIP'
-            'SKIP'
-            'SKIP'
             'SKIP')
+# Note: Prompt files are installed from the prompts/ directory in the repository.
+# They don't need to be listed in source array as makepkg copies the entire directory structure.
 
 package() {
     # Install the shell script

@@ -76,7 +76,8 @@ JSON_PAYLOAD=$(printf '%s' "$PDF_BASE64" | jq -Rs \
 - This caused "Argument list too long" errors for large PDFs due to system ARG_MAX limits
 - Now uses stdin with `jq -Rs` (raw input, slurp mode) to read the base64 data
 - The base64 string is piped through `printf` to `jq`, which reads it as a single string
-- This eliminates command-line length restrictions and supports PDFs of any size
+- The resulting JSON payload is then piped to `curl` using `--data-binary @-` to avoid curl argument length limits
+- This two-stage stdin approach eliminates all command-line length restrictions and supports PDFs of any size
 - Prevents JSON injection attacks and properly escapes special characters
 
 #### Response Processing
@@ -319,13 +320,14 @@ Implementation completed: 2025-11-09
 Version: 2.1.0
 
 **Changelog for v2.1.0:**
-- **CRITICAL FIX**: Resolved "Argument list too long" error for large PDFs
+- **CRITICAL FIX**: Resolved "Argument list too long" error for large PDFs in both jq and curl
 - Changed jq JSON construction to use stdin instead of command-line arguments
+- Changed curl to receive JSON payload via stdin with `--data-binary @-` instead of `-d` flag
 - Extracted system prompts into separate files (default_prompt.txt, metadata_prompt.txt)
 - Added SYSTEM_PROMPT_FILE configuration option for custom prompt files
 - Implemented prompt file discovery system with fallback locations
 - Added support for {METADATA_FIELDS} placeholder in custom prompts
-- Updated PKGBUILD to install prompt files
+- Updated PKGBUILD to properly handle prompt directory structure
 - Improved documentation with prompt customization guide
 
 **Changelog for v2.0.0:**

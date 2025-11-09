@@ -229,13 +229,14 @@ JSON_PAYLOAD=$(printf '%s' "$PDF_BASE64" | jq -Rs \
 )
 
 # Make API request
+# Use stdin to avoid argument list length limits with large payloads
 echo "Sending request to OpenRouter API..."
-RESPONSE=$(curl -s -X POST "$API_ENDPOINT" \
+RESPONSE=$(printf '%s' "$JSON_PAYLOAD" | curl -s -X POST "$API_ENDPOINT" \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $API_KEY" \
     -H "HTTP-Referer: https://github.com/profiluefter/KMarkdownify" \
     -H "X-Title: KMarkdownify" \
-    -d "$JSON_PAYLOAD")
+    --data-binary @-)
 
 # Check for API errors
 if echo "$RESPONSE" | jq -e '.error' > /dev/null 2>&1; then
