@@ -61,45 +61,119 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Track notification ID for persistent notifications
-NOTIFICATION_ID=""
+# A global variable to store the ID of the persistent notification.
+# Do not touch this variable directly; use the helper functions.
+_NOTIF_ID=""
+_NOTIF_TITLE="" # Store the title for updates
 
-# Function to show persistent notification
-show_persistent_notification() {
+# ---
+# Displays the initial persistent loading notification.
+#
+# @param $1 {string} The title for the notification.
+# @param $2 {string} The initial message/body.
+# ---
+notif_show_loading() {
     local title="$1"
     local message="$2"
+    
     echo -e "${YELLOW}$message${NC}"
     
-    # Try kdialog first (KDE native)
-    if command -v kdialog &> /dev/null; then
-        # kdialog doesn't support persistent notifications well, so we use progressbar at 0%
-        NOTIFICATION_ID=$(kdialog --title "$title" --progressbar "$message" 0 2>/dev/null)
-    elif command -v notify-send &> /dev/null; then
-        # Use notify-send with longer timeout for persistence
-        notify-send -t 0 "$title" "$message" 2>/dev/null
+    # Store title for updates
+    _NOTIF_TITLE="$title"
+
+    # Send the notification and capture its ID
+    # -t 0 = persistent
+    # -i "process-working" = loading icon
+    # -p = print the ID
+    if command -v notify-send &> /dev/null; then
+        _NOTIF_ID=$(notify-send "$title" "$message" -t 0 -i "process-working" -p 2>/dev/null || echo "")
+    fi
+    
+    # Set up a trap to automatically call 'notif_error' if the script
+    # exits unexpectedly (e.g., Ctrl-C or an 'exit 1')
+    # This ensures the loading notification is always removed.
+    trap 'notif_error "Script interrupted or failed." > /dev/null 2>&1' EXIT SIGHUP SIGINT SIGTERM
+}
+
+# ---
+# Updates the text of the *existing* loading notification.
+# Keeps the same title and loading icon.
+#
+# @param $1 {string} The new message/body to display.
+# ---
+notif_update() {
+    local message="$1"
+    
+    echo -e "${YELLOW}$message${NC}"
+    
+    # Only run if the notification ID exists
+    if [[ -n "$_NOTIF_ID" ]] && command -v notify-send &> /dev/null; then
+        # Replace the notification with the new message
+        # We keep -t 0 and the icon to show it's still loading.
+        notify-send -r "$_NOTIF_ID" "$_NOTIF_TITLE" "$message" -t 0 -i "process-working" 2>/dev/null || true
     fi
 }
 
-# Function to clear persistent notification
-clear_persistent_notification() {
-    if [ -n "$NOTIFICATION_ID" ]; then
-        qdbus "$NOTIFICATION_ID" close 2>/dev/null || true
-        NOTIFICATION_ID=""
+# ---
+# Finishes the notification using the "replace" method.
+# It replaces the persistent notification with a new, temporary one.
+#
+# @param $1 {string} The *new* title for the final status.
+# @param $2 {string} The *new* message for the final status.
+# @param $3 {string} The icon to use (e.g., "dialog-ok-apply").
+# @param $4 {number} Optional: Timeout in ms (default: 3000).
+# ---
+notif_finish() {
+    local title="$1"
+    local message="$2"
+    local icon="$3"
+    local timeout="${4:-3000}"
+
+    # Disable the trap first, since we are exiting cleanly.
+    # '0' is the signal for a clean exit.
+    trap - 0 EXIT SIGHUP SIGINT SIGTERM
+
+    # Only run if the notification ID exists
+    if [[ -n "$_NOTIF_ID" ]] && command -v notify-send &> /dev/null; then
+        # Replace the persistent notification with a new temporary one.
+        notify-send -r "$_NOTIF_ID" "$title" "$message" -i "$icon" -t "$timeout" 2>/dev/null || true
+        
+        # Clear the ID
+        _NOTIF_ID=""
+        _NOTIF_TITLE=""
+    elif command -v notify-send &> /dev/null; then
+        # Fallback if the notification was never shown
+        notify-send "$title" "$message" -i "$icon" -t "$timeout" 2>/dev/null || true
     fi
+}
+
+# ---
+# Convenience function for a success message.
+#
+# @param $1 {string} The final success message.
+# ---
+notif_success() {
+    local message="${1:-Task finished successfully.}"
+    echo -e "${GREEN}$message${NC}"
+    notif_finish "Task Complete" "$message" "dialog-ok-apply"
+}
+
+# ---
+# Convenience function for an error message.
+#
+# @param $1 {string} The final error message.
+# ---
+notif_error() {
+    local message="${1:-An error occurred.}"
+    echo -e "${RED}Error: $message${NC}" >&2
+    # Use a longer timeout for errors
+    notif_finish "Task Failed" "$message" "dialog-error" 5000
 }
 
 # Function to show error and exit
 error_exit() {
-    clear_persistent_notification
-    echo -e "${RED}Error: $1${NC}" >&2
-    kdialog --error "$1" --title "KMarkdownify Error" 2>/dev/null || notify-send -u critical "KMarkdownify Error" "$1"
+    notif_error "$1"
     exit 1
-}
-
-# Function to show info message
-info_message() {
-    echo -e "${GREEN}$1${NC}"
-    kdialog --passivepopup "$1" 5 --title "KMarkdownify" 2>/dev/null || notify-send "KMarkdownify" "$1"
 }
 
 # Function to show warning message
@@ -151,22 +225,27 @@ OUTPUT_FILE="${PDF_DIR}/${PDF_BASENAME}.md"
 # Check if output file already exists
 if [ -f "$OUTPUT_FILE" ]; then
     if ! kdialog --yesno "Output file already exists: $OUTPUT_FILE\n\nDo you want to overwrite it?" --title "KMarkdownify" 2>/dev/null; then
-        info_message "Conversion cancelled by user."
+        # User cancelled - show info and exit cleanly
+        if command -v notify-send &> /dev/null; then
+            notify-send "KMarkdownify" "Conversion cancelled by user." -i "dialog-information" 2>/dev/null || true
+        fi
+        echo -e "${GREEN}Conversion cancelled by user.${NC}"
         exit 0
     fi
 fi
 
-show_persistent_notification "KMarkdownify" "Converting PDF to Markdown...\nThis may take a moment."
+notif_show_loading "KMarkdownify" "Converting PDF to Markdown...\nThis may take a moment."
 
 # Convert PDF to base64 and store in temporary file
 # Use temp file to avoid storing large data in environment variables
-echo "Encoding PDF file..."
+notif_update "Encoding PDF file..."
 PDF_BASE64_FILE=$(mktemp)
-trap 'clear_persistent_notification; rm -f "$PDF_BASE64_FILE" "$TMPFILE"' EXIT INT TERM
+# Note: trap is already set by notif_show_loading, we just need to clean up temp files
+trap 'notif_error "Script interrupted or failed." > /dev/null 2>&1; rm -f "$PDF_BASE64_FILE" "$TMPFILE"' EXIT INT TERM SIGHUP
 base64 -w 0 "$PDF_FILE" > "$PDF_BASE64_FILE"
 
 # Create JSON payload for API request
-echo "Preparing API request..."
+notif_update "Preparing API request..."
 
 # Build the prompt text based on configuration
 if [ -n "$CUSTOM_PROMPT" ]; then
@@ -250,7 +329,8 @@ fi
 # Use a more robust method to build JSON payload that avoids argument list length limits
 # We write the JSON payload to a temporary file to avoid both command-line and environment variable size limits
 TMPFILE=$(mktemp)
-trap 'clear_persistent_notification; rm -f "$PDF_BASE64_FILE" "$TMPFILE"' EXIT INT TERM
+# Update trap to include new temp file
+trap 'notif_error "Script interrupted or failed." > /dev/null 2>&1; rm -f "$PDF_BASE64_FILE" "$TMPFILE"' EXIT INT TERM SIGHUP
 
 jq -Rs \
     --arg model "$MODEL" \
@@ -284,7 +364,7 @@ jq -Rs \
 
 # Make API request
 # Use temporary file to avoid argument list length limits with large payloads
-echo "Sending request to OpenRouter API..."
+notif_update "Sending request to OpenRouter API..."
 RESPONSE=$(curl -s -X POST "$API_ENDPOINT" \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $API_KEY" \
@@ -299,7 +379,7 @@ if echo "$RESPONSE" | jq -e '.error' > /dev/null 2>&1; then
 fi
 
 # Extract markdown content from response
-echo "Extracting markdown content..."
+notif_update "Extracting markdown content..."
 MARKDOWN_CONTENT=$(echo "$RESPONSE" | jq -r '.choices[0].message.content // empty')
 
 if [ -z "$MARKDOWN_CONTENT" ]; then
@@ -307,11 +387,10 @@ if [ -z "$MARKDOWN_CONTENT" ]; then
 fi
 
 # Save to output file
-echo "Saving to file: $OUTPUT_FILE"
+notif_update "Saving to file: $OUTPUT_FILE"
 echo "$MARKDOWN_CONTENT" > "$OUTPUT_FILE"
 
-# Clear the persistent loading notification and show success
-clear_persistent_notification
-info_message "✓ Conversion complete!\n\nSaved to: $OUTPUT_FILE"
+# Show success notification (this will also clear the trap and close the loading notification)
+notif_success "✓ Conversion complete!\n\nSaved to: $OUTPUT_FILE"
 
 exit 0
