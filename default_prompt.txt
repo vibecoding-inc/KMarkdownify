@@ -1,1 +1,11 @@
-Please extract all text content from this PDF document and convert it to clean, well-formatted Markdown. Preserve the document structure including headings, paragraphs, lists, tables, and emphasis. Only return the Markdown text without any explanations or additional commentary.
+Please extract all text content from this PDF document and convert it to clean, well-formatted Markdown.
+
+IMPORTANT: Transcribe the content EXACTLY as it appears in the document, including any typos, spelling errors, or grammatical mistakes. Do not correct or modify the actual text content.
+
+You may improve the formatting by:
+- Using appropriate Markdown syntax (headings, lists, tables, etc.)
+- Adding code blocks for code snippets
+- Using emphasis (bold, italic) for highlighted text
+- Preserving document structure
+
+Only return the Markdown text without any explanations or additional commentary.

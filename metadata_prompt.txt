@@ -4,11 +4,19 @@ First, extract the following metadata fields if present in the document: {METADA
 
 Then, extract all text content from the PDF and convert it to clean, well-formatted Markdown.
 
+IMPORTANT: Transcribe the content EXACTLY as it appears in the document, including any typos, spelling errors, or grammatical mistakes. Do not correct or modify the actual text content.
+
+You may improve the formatting by:
+- Using appropriate Markdown syntax (headings, lists, tables, etc.)
+- Adding code blocks for code snippets
+- Using emphasis (bold, italic) for highlighted text
+- Preserving document structure
+
 Format your response as follows:
 1. Start with YAML frontmatter containing the metadata (enclosed in --- delimiters)
 2. Follow with the main content in Markdown format
 
-Preserve the document structure including headings, paragraphs, lists, tables, and emphasis. Only return the formatted output without any explanations or additional commentary.
+Only return the formatted output without any explanations or additional commentary.
 
 Example format:
 ---
