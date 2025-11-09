@@ -1,0 +1,45 @@
+name: ShellCheck
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - '**.sh'
+      - '.github/workflows/shellcheck.yml'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - '**.sh'
+      - '.github/workflows/shellcheck.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shellcheck:
+    name: ShellCheck Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@2.0.0
+        with:
+          severity: warning
+          format: gcc
+          scandir: '.'
+          
+      - name: Validate shell scripts are executable
+        run: |
+          echo "Checking if shell scripts have executable permissions..."
+          for script in $(find . -name "*.sh" -type f); do
+            if [ ! -x "$script" ]; then
+              echo "Warning: $script is not executable"
+              echo "You may want to run: chmod +x $script"
+            else
+              echo "✓ $script is executable"
+            fi
+          done

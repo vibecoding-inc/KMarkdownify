@@ -1,0 +1,152 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-package:
+    name: Build Arch Package
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Update system and install dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm base-devel namcap sudo git
+          
+      - name: Create build user
+        run: |
+          useradd -m builder
+          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+          chown -R builder:builder .
+          
+      - name: Extract version from tag or input
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+          
+      - name: Update PKGBUILD version
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          sed -i "s/^pkgver=.*/pkgver=$VERSION/" PKGBUILD
+          cat PKGBUILD
+          
+      - name: Build package
+        run: |
+          sudo -u builder makepkg -sf --noconfirm
+          
+      - name: Run namcap on package
+        continue-on-error: true
+        run: |
+          PKG_FILE=$(ls *.pkg.tar.zst)
+          sudo -u builder namcap "$PKG_FILE" || echo "Namcap found some issues (non-fatal)"
+          
+      - name: List built packages
+        id: package
+        run: |
+          PKG_FILE=$(ls *.pkg.tar.zst)
+          echo "package_file=$PKG_FILE" >> $GITHUB_OUTPUT
+          echo "Built package: $PKG_FILE"
+          ls -lh "$PKG_FILE"
+          
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: arch-package
+          path: '*.pkg.tar.zst'
+          retention-days: 90
+          
+  create-release:
+    name: Create GitHub Release
+    needs: build-package
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Download package artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: arch-package
+          
+      - name: Extract version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+            TAG="v$VERSION"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          cat > release_notes.md << 'EOF'
+          ## KMarkdownify ${{ steps.version.outputs.version }}
+          
+          ### Installation
+          
+          #### Arch Linux
+          Download the `.pkg.tar.zst` file and install it:
+          ```bash
+          sudo pacman -U kmarkdownify-${{ steps.version.outputs.version }}-1-any.pkg.tar.zst
+          ```
+          
+          #### Manual Installation
+          See the [Installation Guide](https://github.com/${{ github.repository }}/blob/main/INSTALL.md) for manual installation instructions.
+          
+          ### Configuration
+          After installation, configure your OpenRouter API key:
+          ```bash
+          mkdir -p ~/.config/kmarkdownify
+          echo "YOUR_API_KEY_HERE" > ~/.config/kmarkdownify/api_key
+          chmod 600 ~/.config/kmarkdownify/api_key
+          ```
+          
+          Get your API key from [OpenRouter](https://openrouter.ai/keys).
+          
+          ### What's Included
+          - KMarkdownify shell script
+          - Dolphin service menu integration
+          - Documentation and configuration examples
+          EOF
+          
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.version }}
+          body_path: release_notes.md
+          files: |
+            *.pkg.tar.zst
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
