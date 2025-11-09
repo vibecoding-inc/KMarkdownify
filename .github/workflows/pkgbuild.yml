@@ -32,6 +32,17 @@ jobs:
           pacman -Syu --noconfirm
           pacman -S --noconfirm base-devel namcap sudo git
 
+      - name: Fix ownership and verify files
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Listing files:"
+          ls -la
+          if [ ! -f "PKGBUILD" ]; then
+            echo "ERROR: PKGBUILD not found!"
+            exit 1
+          fi
+          echo "✓ PKGBUILD found"
+
       - name: Create build user
         run: |
           useradd -m builder
@@ -40,16 +51,16 @@ jobs:
 
       - name: Validate PKGBUILD syntax
         run: |
-          sudo -u builder bash -c "source PKGBUILD && echo 'PKGBUILD syntax is valid'"
+          sudo -u builder bash -c "cd $(pwd) && source PKGBUILD && echo 'PKGBUILD syntax is valid'"
 
       - name: Run namcap on PKGBUILD
         run: |
-          sudo -u builder namcap PKGBUILD
+          sudo -u builder bash -c "cd $(pwd) && namcap PKGBUILD"
 
       - name: Check PKGBUILD required fields
         run: |
           echo "Checking required PKGBUILD fields..."
-
+          cd $(pwd)
           source PKGBUILD
 
           # Check required variables
@@ -79,12 +90,13 @@ jobs:
 
       - name: Test package build (dry-run)
         run: |
-          sudo -u builder makepkg --nobuild --nodeps
+          sudo -u builder bash -c "cd $(pwd) && makepkg --nobuild --nodeps"
           echo "✓ Package preparation succeeded"
 
       - name: Verify package files are present
         run: |
           echo "Checking if all source files exist..."
+          cd $(pwd)
           [ -f "kmarkdownify.sh" ] && echo "✓ kmarkdownify.sh exists" || {
             echo "✗ kmarkdownify.sh missing"; exit 1;
           }
