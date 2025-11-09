@@ -74,6 +74,15 @@ sudo install -Dm755 kmarkdownify.sh /usr/local/bin/kmarkdownify.sh
 
 # Install the service menu
 sudo install -Dm644 kmarkdownify.desktop /usr/share/kio/servicemenus/kmarkdownify.desktop
+
+# Install prompt files
+sudo mkdir -p /usr/local/share/kmarkdownify/prompts
+sudo install -Dm644 prompts/default_prompt.txt /usr/local/share/kmarkdownify/prompts/default_prompt.txt
+sudo install -Dm644 prompts/metadata_prompt.txt /usr/local/share/kmarkdownify/prompts/metadata_prompt.txt
+
+# Install example configuration
+sudo mkdir -p /usr/share/doc/kmarkdownify
+sudo install -Dm644 config.example /usr/share/doc/kmarkdownify/config.example
 ```
 
 4. Refresh KDE service menus:
@@ -130,7 +139,8 @@ nano ~/.config/kmarkdownify/config
 - `MAX_TOKENS`: Maximum response length (default: 8000)
 - `EXTRACT_METADATA`: Enable/disable metadata extraction (default: true)
 - `METADATA_FIELDS`: Comma-separated list of fields to extract (default: "Title,Author,Course,Due Date")
-- `CUSTOM_PROMPT`: Override the default prompt with your own
+- `SYSTEM_PROMPT_FILE`: Path to a custom prompt file (optional, see Custom Prompts section)
+- `CUSTOM_PROMPT`: Override the default prompt with your own inline text (optional)
 
 **Example: Disable metadata extraction**
 ```bash
@@ -141,6 +151,43 @@ echo "EXTRACT_METADATA=false" >> ~/.config/kmarkdownify/config
 ```bash
 echo "METADATA_FIELDS=Title,Author,Course,Due Date,Student ID,Professor" >> ~/.config/kmarkdownify/config
 ```
+
+### Custom Prompts
+
+KMarkdownify supports custom prompts in three ways:
+
+1. **Using Built-in Prompt Files (Default)**
+   - The tool includes two default prompt files:
+     - `default_prompt.txt` - Simple text extraction without metadata
+     - `metadata_prompt.txt` - Text extraction with metadata and YAML frontmatter
+   - These are installed to `/usr/share/kmarkdownify/prompts/` (Arch) or `/usr/local/share/kmarkdownify/prompts/` (manual install)
+   - The appropriate prompt is automatically selected based on `EXTRACT_METADATA` setting
+
+2. **Using a Custom Prompt File**
+   - Create your own prompt file and reference it in the config:
+   ```bash
+   # Create a custom prompt file
+   cat > ~/.config/kmarkdownify/custom_prompt.txt << 'EOF'
+   Please extract text from this PDF and format it as a technical documentation page.
+   Focus on code blocks, API references, and preserve all formatting details.
+   EOF
+   
+   # Configure KMarkdownify to use it
+   echo "SYSTEM_PROMPT_FILE=custom_prompt.txt" >> ~/.config/kmarkdownify/config
+   ```
+   - You can use absolute paths or relative paths (relative to `~/.config/kmarkdownify/`)
+   - Use `{METADATA_FIELDS}` placeholder in your prompt to inject the configured metadata fields
+
+3. **Using Inline Custom Prompt**
+   - Override the prompt directly in the config file:
+   ```bash
+   echo 'CUSTOM_PROMPT="Extract only headings and bullet points from this PDF."' >> ~/.config/kmarkdownify/config
+   ```
+
+**Priority Order:**
+1. `CUSTOM_PROMPT` (inline in config) - highest priority
+2. `SYSTEM_PROMPT_FILE` (custom prompt file)
+3. Built-in prompt files based on `EXTRACT_METADATA` setting - default
 
 ### Metadata Extraction
 
@@ -188,12 +235,14 @@ The converted Markdown file will be saved as `/path/to/your/file.md`
 
 1. The script receives the PDF file path from Dolphin's context menu
 2. Loads configuration from `~/.config/kmarkdownify/config` (if present)
-3. Encodes the PDF file to base64 format
-4. Sends the PDF to OpenRouter API using the configured AI model (default: Mistral's Pixtral Large)
-5. The AI model performs OCR and extracts metadata (Title, Author, Course, Due Date)
-6. Converts the text to Markdown format with YAML frontmatter containing the metadata
-7. Saves the result as a `.md` file in the same directory
-8. Shows a notification upon completion
+3. Determines the appropriate system prompt (custom file, inline custom, or built-in)
+4. Encodes the PDF file to base64 format
+5. Constructs a JSON API request using `jq` with stdin to avoid argument length limits
+6. Sends the PDF to OpenRouter API using the configured AI model (default: Mistral's Pixtral Large)
+7. The AI model performs OCR and extracts metadata (Title, Author, Course, Due Date) if enabled
+8. Converts the text to Markdown format with optional YAML frontmatter containing the metadata
+9. Saves the result as a `.md` file in the same directory
+10. Shows a notification upon completion
 
 ## API Costs
 
@@ -235,7 +284,27 @@ cat /path/to/test.md
 
 ### Modifying the Conversion Prompt
 
-Edit the `kmarkdownify.sh` file and modify the prompt text in the JSON payload section to customize how the AI extracts and formats the content.
+You have several options to customize the conversion prompt:
+
+1. **Edit the built-in prompt files** (requires admin access):
+   - `/usr/share/kmarkdownify/prompts/default_prompt.txt`
+   - `/usr/share/kmarkdownify/prompts/metadata_prompt.txt`
+
+2. **Create a custom prompt file** (recommended):
+   ```bash
+   # Create your custom prompt
+   nano ~/.config/kmarkdownify/my_prompt.txt
+   
+   # Configure KMarkdownify to use it
+   echo "SYSTEM_PROMPT_FILE=my_prompt.txt" >> ~/.config/kmarkdownify/config
+   ```
+
+3. **Use inline custom prompt in config**:
+   ```bash
+   echo 'CUSTOM_PROMPT="Your custom instructions here..."' >> ~/.config/kmarkdownify/config
+   ```
+
+See the "Custom Prompts" section in Configuration for more details.
 
 ## License
 

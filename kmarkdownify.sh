@@ -12,6 +12,17 @@ CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/kmarkdownify"
 CONFIG_FILE="${CONFIG_DIR}/config"
 API_KEY_FILE="${CONFIG_DIR}/api_key"
 
+# Determine installation prefix for prompt files
+if [ -d "/usr/share/kmarkdownify/prompts" ]; then
+    PROMPTS_DIR="/usr/share/kmarkdownify/prompts"
+elif [ -d "/usr/local/share/kmarkdownify/prompts" ]; then
+    PROMPTS_DIR="/usr/local/share/kmarkdownify/prompts"
+else
+    # Fallback to script's directory
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    PROMPTS_DIR="${SCRIPT_DIR}/prompts"
+fi
+
 # Default values (can be overridden by config file)
 MODEL="mistralai/pixtral-large-latest"
 TEMPERATURE="0.1"
@@ -19,6 +30,7 @@ MAX_TOKENS="8000"
 EXTRACT_METADATA="true"
 METADATA_FIELDS="Title,Author,Course,Due Date"
 CUSTOM_PROMPT=""
+SYSTEM_PROMPT_FILE=""
 
 # Load configuration file if it exists
 if [ -f "$CONFIG_FILE" ]; then
@@ -38,6 +50,7 @@ if [ -f "$CONFIG_FILE" ]; then
             EXTRACT_METADATA) EXTRACT_METADATA="$value" ;;
             METADATA_FIELDS) METADATA_FIELDS="$value" ;;
             CUSTOM_PROMPT) CUSTOM_PROMPT="$value" ;;
+            SYSTEM_PROMPT_FILE) SYSTEM_PROMPT_FILE="$value" ;;
         esac
     done < "$CONFIG_FILE"
 fi
@@ -125,11 +138,33 @@ echo "Preparing API request..."
 
 # Build the prompt text based on configuration
 if [ -n "$CUSTOM_PROMPT" ]; then
-    # Use custom prompt if provided
+    # Use custom prompt if provided inline in config
     PROMPT_TEXT="$CUSTOM_PROMPT"
+elif [ -n "$SYSTEM_PROMPT_FILE" ]; then
+    # Use custom prompt file if specified
+    # Handle both absolute and relative paths
+    if [[ "$SYSTEM_PROMPT_FILE" = /* ]]; then
+        PROMPT_FILE="$SYSTEM_PROMPT_FILE"
+    else
+        PROMPT_FILE="${CONFIG_DIR}/${SYSTEM_PROMPT_FILE}"
+    fi
+    
+    if [ ! -f "$PROMPT_FILE" ]; then
+        error_exit "System prompt file not found: $PROMPT_FILE"
+    fi
+    
+    PROMPT_TEXT=$(cat "$PROMPT_FILE")
+    # Replace {METADATA_FIELDS} placeholder if present
+    PROMPT_TEXT="${PROMPT_TEXT//\{METADATA_FIELDS\}/$METADATA_FIELDS}"
 elif [ "$EXTRACT_METADATA" = "true" ]; then
-    # Use metadata extraction prompt
-    PROMPT_TEXT="Please analyze this PDF document and extract both metadata and content.
+    # Use default metadata extraction prompt from installed file
+    if [ -f "${PROMPTS_DIR}/metadata_prompt.txt" ]; then
+        PROMPT_TEXT=$(cat "${PROMPTS_DIR}/metadata_prompt.txt")
+        # Replace {METADATA_FIELDS} placeholder
+        PROMPT_TEXT="${PROMPT_TEXT//\{METADATA_FIELDS\}/$METADATA_FIELDS}"
+    else
+        # Fallback to inline prompt if file not found
+        PROMPT_TEXT="Please analyze this PDF document and extract both metadata and content.
 
 First, extract the following metadata fields if present in the document: ${METADATA_FIELDS}. If a field cannot be found, use 'N/A'.
 
@@ -151,14 +186,21 @@ Due Date: Date or N/A
 
 # Document Content Starts Here
 ..."
+    fi
 else
-    # Use simple extraction prompt without metadata
-    PROMPT_TEXT="Please extract all text content from this PDF document and convert it to clean, well-formatted Markdown. Preserve the document structure including headings, paragraphs, lists, tables, and emphasis. Only return the Markdown text without any explanations or additional commentary."
+    # Use default simple extraction prompt from installed file
+    if [ -f "${PROMPTS_DIR}/default_prompt.txt" ]; then
+        PROMPT_TEXT=$(cat "${PROMPTS_DIR}/default_prompt.txt")
+    else
+        # Fallback to inline prompt if file not found
+        PROMPT_TEXT="Please extract all text content from this PDF document and convert it to clean, well-formatted Markdown. Preserve the document structure including headings, paragraphs, lists, tables, and emphasis. Only return the Markdown text without any explanations or additional commentary."
+    fi
 fi
 
-JSON_PAYLOAD=$(jq -n \
+# Use a more robust method to build JSON payload that avoids argument list length limits
+# We pass the PDF base64 data via stdin to avoid command-line length restrictions
+JSON_PAYLOAD=$(printf '%s' "$PDF_BASE64" | jq -Rs \
     --arg model "$MODEL" \
-    --arg pdf_data "data:application/pdf;base64,$PDF_BASE64" \
     --arg prompt "$PROMPT_TEXT" \
     --arg temperature "$TEMPERATURE" \
     --argjson max_tokens "$MAX_TOKENS" \
@@ -175,7 +217,7 @@ JSON_PAYLOAD=$(jq -n \
                     {
                         "type": "image_url",
                         "image_url": {
-                            "url": $pdf_data
+                            "url": ("data:application/pdf;base64," + .)
                         }
                     }
                 ]

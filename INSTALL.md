@@ -65,6 +65,15 @@ sudo install -Dm755 kmarkdownify.sh /usr/local/bin/kmarkdownify.sh
 # Install service menu (system-wide)
 sudo install -Dm644 kmarkdownify.desktop /usr/share/kio/servicemenus/kmarkdownify.desktop
 
+# Install prompt files
+sudo mkdir -p /usr/local/share/kmarkdownify/prompts
+sudo install -Dm644 prompts/default_prompt.txt /usr/local/share/kmarkdownify/prompts/default_prompt.txt
+sudo install -Dm644 prompts/metadata_prompt.txt /usr/local/share/kmarkdownify/prompts/metadata_prompt.txt
+
+# Install example configuration
+sudo mkdir -p /usr/share/doc/kmarkdownify
+sudo install -Dm644 config.example /usr/share/doc/kmarkdownify/config.example
+
 # Or for user-only installation:
 # mkdir -p ~/.local/share/kio/servicemenus
 # cp kmarkdownify.desktop ~/.local/share/kio/servicemenus/
@@ -202,6 +211,12 @@ sudo rm /usr/local/bin/kmarkdownify.sh
 sudo rm /usr/share/kio/servicemenus/kmarkdownify.desktop
 # or (user-only)
 rm ~/.local/share/kio/servicemenus/kmarkdownify.desktop
+
+# Remove prompt files
+sudo rm -rf /usr/local/share/kmarkdownify
+
+# Remove documentation
+sudo rm -rf /usr/share/doc/kmarkdownify
 
 # Remove configuration (optional)
 rm -rf ~/.config/kmarkdownify
