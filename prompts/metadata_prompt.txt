@@ -1,0 +1,22 @@
+Please analyze this PDF document and extract both metadata and content.
+
+First, extract the following metadata fields if present in the document: {METADATA_FIELDS}. If a field cannot be found, use 'N/A'.
+
+Then, extract all text content from the PDF and convert it to clean, well-formatted Markdown.
+
+Format your response as follows:
+1. Start with YAML frontmatter containing the metadata (enclosed in --- delimiters)
+2. Follow with the main content in Markdown format
+
+Preserve the document structure including headings, paragraphs, lists, tables, and emphasis. Only return the formatted output without any explanations or additional commentary.
+
+Example format:
+---
+Title: Document Title or N/A
+Author: Author Name or N/A
+Course: Course Name or N/A
+Due Date: Date or N/A
+---
+
+# Document Content Starts Here
+...

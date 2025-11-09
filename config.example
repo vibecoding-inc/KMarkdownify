@@ -24,8 +24,15 @@ MAX_TOKENS=8000
 # Default: true
 EXTRACT_METADATA=true
 
-# Custom conversion prompt (optional)
-# If not set, uses the default prompt with metadata extraction
+# System prompt file path (optional)
+# Path to a file containing the system prompt to use
+# If not set, uses the built-in prompts based on EXTRACT_METADATA setting
+# Can be absolute path or relative to ~/.config/kmarkdownify/
+# Example: SYSTEM_PROMPT_FILE="/path/to/custom_prompt.txt"
+# SYSTEM_PROMPT_FILE=
+
+# Custom conversion prompt (optional, inline)
+# If not set and SYSTEM_PROMPT_FILE is not set, uses the default prompt
 # Uncomment and customize to override the default behavior:
 # CUSTOM_PROMPT="Your custom prompt here..."
 

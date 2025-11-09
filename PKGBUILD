@@ -13,8 +13,12 @@ optdepends=(
 )
 source=("kmarkdownify.sh"
         "kmarkdownify.desktop"
-        "config.example")
+        "config.example"
+        "prompts/default_prompt.txt"
+        "prompts/metadata_prompt.txt")
 sha256sums=('SKIP'
+            'SKIP'
+            'SKIP'
             'SKIP'
             'SKIP')
 
@@ -25,6 +29,12 @@ package() {
     # Install the desktop service menu file
     install -Dm644 "${srcdir}/kmarkdownify.desktop" \
         "${pkgdir}/usr/share/kio/servicemenus/kmarkdownify.desktop"
+    
+    # Install prompt files
+    install -Dm644 "${srcdir}/prompts/default_prompt.txt" \
+        "${pkgdir}/usr/share/${pkgname}/prompts/default_prompt.txt"
+    install -Dm644 "${srcdir}/prompts/metadata_prompt.txt" \
+        "${pkgdir}/usr/share/${pkgname}/prompts/metadata_prompt.txt"
     
     # Install example configuration file
     install -Dm644 "${srcdir}/config.example" \
