@@ -1,1 +1,0 @@
-Please extract all text content from this PDF document and convert it to clean, well-formatted Markdown. Preserve the document structure including headings, paragraphs, lists, tables, and emphasis. Only return the Markdown text without any explanations or additional commentary.

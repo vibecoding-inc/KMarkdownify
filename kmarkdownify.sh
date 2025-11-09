@@ -129,9 +129,12 @@ fi
 
 info_message "Converting PDF to Markdown...\nThis may take a moment."
 
-# Convert PDF to base64
+# Convert PDF to base64 and store in temporary file
+# Use temp file to avoid storing large data in environment variables
 echo "Encoding PDF file..."
-PDF_BASE64=$(base64 -w 0 "$PDF_FILE")
+PDF_BASE64_FILE=$(mktemp)
+trap 'rm -f "$PDF_BASE64_FILE" "$TMPFILE"' EXIT
+base64 -w 0 "$PDF_FILE" > "$PDF_BASE64_FILE"
 
 # Create JSON payload for API request
 echo "Preparing API request..."
@@ -200,9 +203,9 @@ fi
 # Use a more robust method to build JSON payload that avoids argument list length limits
 # We write the JSON payload to a temporary file to avoid both command-line and environment variable size limits
 TMPFILE=$(mktemp)
-trap 'rm -f "$TMPFILE"' EXIT
+trap 'rm -f "$PDF_BASE64_FILE" "$TMPFILE"' EXIT
 
-printf '%s' "$PDF_BASE64" | jq -Rs \
+jq -Rs \
     --arg model "$MODEL" \
     --arg prompt "$PROMPT_TEXT" \
     --arg temperature "$TEMPERATURE" \
@@ -228,7 +231,7 @@ printf '%s' "$PDF_BASE64" | jq -Rs \
         ],
         "temperature": ($temperature | tonumber),
         "max_tokens": $max_tokens
-    }' > "$TMPFILE"
+    }' < "$PDF_BASE64_FILE" > "$TMPFILE"
 
 # Make API request
 # Use temporary file to avoid argument list length limits with large payloads

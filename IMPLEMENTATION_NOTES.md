@@ -62,26 +62,32 @@ API Request → Parse Response → Save Markdown → Notify User
 - **Max Tokens**: 8000 (approximately 6000 words)
 
 #### JSON Construction
-Uses `jq -Rs` with stdin and writes to a temporary file to avoid all size limits:
+Uses temporary files throughout to avoid all size limits:
 ```bash
-TMPFILE=$(mktemp)
-trap 'rm -f "$TMPFILE"' EXIT
+# Encode PDF to temp file
+PDF_BASE64_FILE=$(mktemp)
+base64 -w 0 "$PDF_FILE" > "$PDF_BASE64_FILE"
 
-printf '%s' "$PDF_BASE64" | jq -Rs \
+# Build JSON payload and write to temp file
+TMPFILE=$(mktemp)
+trap 'rm -f "$PDF_BASE64_FILE" "$TMPFILE"' EXIT
+
+jq -Rs \
     --arg model "$MODEL" \
     --arg prompt "$PROMPT_TEXT" \
-    '{ ... }' > "$TMPFILE"
+    '{ ... }' < "$PDF_BASE64_FILE" > "$TMPFILE"
 ```
 
 **Key Changes (v2.1.0)**:
 - Prior versions passed the base64-encoded PDF as a command-line argument (`--arg pdf_data`)
 - This caused "Argument list too long" errors for large PDFs due to system ARG_MAX limits
 - Now uses a temporary file approach to eliminate all size restrictions:
-  1. PDF base64 data is piped to `jq -Rs` (raw input, slurp mode) via stdin
-  2. jq constructs the JSON payload and writes it directly to a temporary file
-  3. curl reads the JSON payload from the temporary file using `--data-binary @"$TMPFILE"`
-- This approach avoids command-line length limits, environment variable size limits, and pipe buffer issues
-- The temporary file is automatically cleaned up on script exit using a trap
+  1. PDF is encoded to base64 and written directly to a temporary file (no environment variables)
+  2. jq reads from the base64 temp file via stdin using `jq -Rs ... < "$PDF_BASE64_FILE"`
+  3. jq constructs the JSON payload and writes it directly to another temporary file
+  4. curl reads the JSON payload from the temporary file using `--data-binary @"$TMPFILE"`
+- This approach completely avoids command-line length limits, environment variable size limits, and pipe buffer issues
+- All temporary files are automatically cleaned up on script exit using a trap
 - Prevents JSON injection attacks and properly escapes special characters
 
 #### Response Processing
@@ -325,11 +331,14 @@ Version: 2.1.0
 
 **Changelog for v2.1.0:**
 - **CRITICAL FIX**: Resolved "Argument list too long" error for large PDFs in both jq and curl
-- Changed jq JSON construction to use stdin instead of command-line arguments
-- Changed curl to receive JSON payload from a temporary file using `--data-binary @"$TMPFILE"`
-- Temporary file approach eliminates command-line, environment variable, and pipe buffer size limits
+- Changed to use temporary files throughout - no large data stored in environment variables
+- PDF base64 data written directly to temp file, avoiding memory issues
+- jq reads from temp file and writes JSON payload to another temp file
+- curl reads JSON payload from temp file using `--data-binary @"$TMPFILE"`
+- Temporary file approach eliminates all command-line, environment variable, and pipe buffer size limits
 - Extracted system prompts into separate files (default_prompt.txt, metadata_prompt.txt)
 - Moved prompt files to repository root for proper PKGBUILD source handling
+- Removed redundant prompts subdirectory from repository
 - Added SYSTEM_PROMPT_FILE configuration option for custom prompt files
 - Implemented prompt file discovery system with fallback locations
 - Added support for {METADATA_FIELDS} placeholder in custom prompts
