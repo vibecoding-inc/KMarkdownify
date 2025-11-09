@@ -61,10 +61,38 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Track notification ID for persistent notifications
+NOTIFICATION_ID=""
+
+# Function to show persistent notification
+show_persistent_notification() {
+    local title="$1"
+    local message="$2"
+    echo -e "${YELLOW}$message${NC}"
+    
+    # Try kdialog first (KDE native)
+    if command -v kdialog &> /dev/null; then
+        # kdialog doesn't support persistent notifications well, so we use progressbar at 0%
+        NOTIFICATION_ID=$(kdialog --title "$title" --progressbar "$message" 0 2>/dev/null)
+    elif command -v notify-send &> /dev/null; then
+        # Use notify-send with longer timeout for persistence
+        notify-send -t 0 "$title" "$message" 2>/dev/null
+    fi
+}
+
+# Function to clear persistent notification
+clear_persistent_notification() {
+    if [ -n "$NOTIFICATION_ID" ]; then
+        qdbus "$NOTIFICATION_ID" close 2>/dev/null || true
+        NOTIFICATION_ID=""
+    fi
+}
+
 # Function to show error and exit
 error_exit() {
+    clear_persistent_notification
     echo -e "${RED}Error: $1${NC}" >&2
-    kdialog --error "$1" --title "KMarkdownify Error" 2>/dev/null || notify-send "KMarkdownify Error" "$1"
+    kdialog --error "$1" --title "KMarkdownify Error" 2>/dev/null || notify-send -u critical "KMarkdownify Error" "$1"
     exit 1
 }
 
@@ -116,6 +144,7 @@ fi
 
 # Generate output filename
 PDF_BASENAME=$(basename "$PDF_FILE" .pdf)
+PDF_FILENAME=$(basename "$PDF_FILE")
 PDF_DIR=$(dirname "$PDF_FILE")
 OUTPUT_FILE="${PDF_DIR}/${PDF_BASENAME}.md"
 
@@ -127,13 +156,13 @@ if [ -f "$OUTPUT_FILE" ]; then
     fi
 fi
 
-info_message "Converting PDF to Markdown...\nThis may take a moment."
+show_persistent_notification "KMarkdownify" "Converting PDF to Markdown...\nThis may take a moment."
 
 # Convert PDF to base64 and store in temporary file
 # Use temp file to avoid storing large data in environment variables
 echo "Encoding PDF file..."
 PDF_BASE64_FILE=$(mktemp)
-trap 'rm -f "$PDF_BASE64_FILE" "$TMPFILE"' EXIT
+trap 'clear_persistent_notification; rm -f "$PDF_BASE64_FILE" "$TMPFILE"' EXIT INT TERM
 base64 -w 0 "$PDF_FILE" > "$PDF_BASE64_FILE"
 
 # Create JSON payload for API request
@@ -173,11 +202,19 @@ First, extract the following metadata fields if present in the document: ${METAD
 
 Then, extract all text content from the PDF and convert it to clean, well-formatted Markdown.
 
+IMPORTANT: Transcribe the content EXACTLY as it appears in the document, including any typos, spelling errors, or grammatical mistakes. Do not correct or modify the actual text content.
+
+You may improve the formatting by:
+- Using appropriate Markdown syntax (headings, lists, tables, etc.)
+- Adding code blocks for code snippets
+- Using emphasis (bold, italic) for highlighted text
+- Preserving document structure
+
 Format your response as follows:
 1. Start with YAML frontmatter containing the metadata (enclosed in --- delimiters)
 2. Follow with the main content in Markdown format
 
-Preserve the document structure including headings, paragraphs, lists, tables, and emphasis. Only return the formatted output without any explanations or additional commentary.
+Only return the formatted output without any explanations or additional commentary.
 
 Example format:
 ---
@@ -196,20 +233,31 @@ else
         PROMPT_TEXT=$(cat "${PROMPTS_DIR}/default_prompt.txt")
     else
         # Fallback to inline prompt if file not found
-        PROMPT_TEXT="Please extract all text content from this PDF document and convert it to clean, well-formatted Markdown. Preserve the document structure including headings, paragraphs, lists, tables, and emphasis. Only return the Markdown text without any explanations or additional commentary."
+        PROMPT_TEXT="Please extract all text content from this PDF document and convert it to clean, well-formatted Markdown.
+
+IMPORTANT: Transcribe the content EXACTLY as it appears in the document, including any typos, spelling errors, or grammatical mistakes. Do not correct or modify the actual text content.
+
+You may improve the formatting by:
+- Using appropriate Markdown syntax (headings, lists, tables, etc.)
+- Adding code blocks for code snippets
+- Using emphasis (bold, italic) for highlighted text
+- Preserving document structure
+
+Only return the Markdown text without any explanations or additional commentary."
     fi
 fi
 
 # Use a more robust method to build JSON payload that avoids argument list length limits
 # We write the JSON payload to a temporary file to avoid both command-line and environment variable size limits
 TMPFILE=$(mktemp)
-trap 'rm -f "$PDF_BASE64_FILE" "$TMPFILE"' EXIT
+trap 'clear_persistent_notification; rm -f "$PDF_BASE64_FILE" "$TMPFILE"' EXIT INT TERM
 
 jq -Rs \
     --arg model "$MODEL" \
     --arg prompt "$PROMPT_TEXT" \
     --arg temperature "$TEMPERATURE" \
     --argjson max_tokens "$MAX_TOKENS" \
+    --arg filename "$PDF_FILENAME" \
     '{
         "model": $model,
         "messages": [
@@ -221,9 +269,10 @@ jq -Rs \
                         "text": $prompt
                     },
                     {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": ("data:application/pdf;base64," + .)
+                        "type": "file",
+                        "file": {
+                            "filename": $filename,
+                            "file_data": ("data:application/pdf;base64," + .)
                         }
                     }
                 ]
@@ -261,10 +310,8 @@ fi
 echo "Saving to file: $OUTPUT_FILE"
 echo "$MARKDOWN_CONTENT" > "$OUTPUT_FILE"
 
-# Success message
+# Clear the persistent loading notification and show success
+clear_persistent_notification
 info_message "✓ Conversion complete!\n\nSaved to: $OUTPUT_FILE"
-
-echo -e "${GREEN}Conversion successful!${NC}"
-echo "Output saved to: $OUTPUT_FILE"
 
 exit 0
