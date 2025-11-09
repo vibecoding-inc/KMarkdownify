@@ -2,12 +2,12 @@ name: PKGBUILD Validation
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
     paths:
       - 'PKGBUILD'
       - '.github/workflows/pkgbuild.yml'
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
     paths:
       - 'PKGBUILD'
       - '.github/workflows/pkgbuild.yml'
@@ -22,55 +22,59 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: archlinux:latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+
       - name: Update system and install dependencies
         run: |
           pacman -Syu --noconfirm
           pacman -S --noconfirm base-devel namcap sudo git
-          
+
       - name: Create build user
         run: |
           useradd -m builder
           echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
           chown -R builder:builder .
-          
+
       - name: Validate PKGBUILD syntax
         run: |
           sudo -u builder bash -c "source PKGBUILD && echo 'PKGBUILD syntax is valid'"
-          
+
       - name: Run namcap on PKGBUILD
         run: |
           sudo -u builder namcap PKGBUILD
-          
+
       - name: Check PKGBUILD required fields
         run: |
           echo "Checking required PKGBUILD fields..."
-          
+
           source PKGBUILD
-          
+
           # Check required variables
-          [ -n "$pkgname" ] && echo "✓ pkgname is set: $pkgname" || { echo "✗ pkgname is missing"; exit 1; }
-          [ -n "$pkgver" ] && echo "✓ pkgver is set: $pkgver" || { echo "✗ pkgver is missing"; exit 1; }
-          [ -n "$pkgrel" ] && echo "✓ pkgrel is set: $pkgrel" || { echo "✗ pkgrel is missing"; exit 1; }
-          [ -n "$pkgdesc" ] && echo "✓ pkgdesc is set" || { echo "✗ pkgdesc is missing"; exit 1; }
-          [ -n "$arch" ] && echo "✓ arch is set: ${arch[*]}" || { echo "✗ arch is missing"; exit 1; }
-          [ -n "$url" ] && echo "✓ url is set: $url" || { echo "✗ url is missing"; exit 1; }
-          [ -n "$license" ] && echo "✓ license is set: ${license[*]}" || { echo "✗ license is missing"; exit 1; }
-          
+          [ -n "$pkgname"] && echo "✓ pkgname is set: $pkgname" || { echo "✗ pkgname is missing"; exit 1; }
+          [ -n "$pkgver"] && echo "✓ pkgver is set: $pkgver" || { echo "✗ pkgver is missing"; exit 1; }
+          [ -n "$pkgrel"] && echo "✓ pkgrel is set: $pkgrel" || { echo "✗ pkgrel is missing"; exit 1; }
+          [ -n "$pkgdesc"] && echo "✓ pkgdesc is set" || { echo "✗ pkgdesc is missing"; exit 1; }
+          [ -n "$arch"] && echo "✓ arch is set: ${arch[*]}" || { echo "✗ arch is missing"; exit 1; }
+          [ -n "$url"] && echo "✓ url is set: $url" || { echo "✗ url is missing"; exit 1; }
+          [ -n "$license"] && echo "✓ license is set: ${license[*]}" || { echo "✗ license is missing"; exit 1; }
+
           echo "✓ All required PKGBUILD fields are present"
-          
+
       - name: Test package build (dry-run)
         run: |
           sudo -u builder makepkg --nobuild --nodeps
           echo "✓ Package preparation succeeded"
-          
+
       - name: Verify package files are present
         run: |
           echo "Checking if all source files exist..."
-          [ -f "kmarkdownify.sh" ] && echo "✓ kmarkdownify.sh exists" || { echo "✗ kmarkdownify.sh missing"; exit 1; }
-          [ -f "kmarkdownify.desktop" ] && echo "✓ kmarkdownify.desktop exists" || { echo "✗ kmarkdownify.desktop missing"; exit 1; }
+          [ -f "kmarkdownify.sh" ] && echo "✓ kmarkdownify.sh exists" || {
+            echo "✗ kmarkdownify.sh missing"; exit 1;
+          }
+          [ -f "kmarkdownify.desktop" ] && echo "✓ kmarkdownify.desktop exists" || {
+            echo "✗ kmarkdownify.desktop missing"; exit 1;
+          }
           echo "✓ All package source files are present"

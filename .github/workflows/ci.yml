@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
   workflow_dispatch:
 
 permissions:
@@ -14,16 +14,16 @@ jobs:
   validate:
     name: Validate Project Files
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y desktop-file-utils shellcheck
-          
+
       - name: Validate desktop file
         run: |
           echo "Validating kmarkdownify.desktop..."
@@ -32,12 +32,12 @@ jobs:
             exit 1
           }
           echo "✓ Desktop file is valid"
-          
+
       - name: Check required dependencies in PKGBUILD
         run: |
           echo "Checking PKGBUILD dependencies..."
           required_deps=("bash" "curl" "jq" "coreutils" "file")
-          
+
           for dep in "${required_deps[@]}"; do
             if grep -q "'$dep'" PKGBUILD; then
               echo "✓ $dep is listed in PKGBUILD"
@@ -46,46 +46,46 @@ jobs:
               exit 1
             fi
           done
-          
+
       - name: Verify script syntax
         run: |
           echo "Checking shell script syntax..."
           bash -n kmarkdownify.sh
           echo "✓ Shell script syntax is valid"
-          
+
       - name: Check for common issues
         run: |
           echo "Checking for common issues..."
-          
+
           # Check for hardcoded paths that might need to be configurable
           if grep -n "/usr/local/bin" kmarkdownify.sh > /dev/null; then
             echo "Note: Script references /usr/local/bin path (this is expected)"
           fi
-          
+
           # Check that API key path uses HOME variable
           if ! grep -q "\${HOME}/.config/kmarkdownify/api_key" kmarkdownify.sh; then
             echo "Warning: API key path should use \${HOME} variable"
           else
             echo "✓ API key path uses HOME variable"
           fi
-          
+
           # Verify set -euo pipefail is present (best practice)
           if ! grep -q "set -euo pipefail" kmarkdownify.sh; then
             echo "Warning: Script should use 'set -euo pipefail' for better error handling"
           else
             echo "✓ Script uses proper error handling with 'set -euo pipefail'"
           fi
-          
+
           echo "✓ Common issues check complete"
-          
+
   shellcheck:
     name: ShellCheck Analysis
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+
       - name: Run ShellCheck
         uses: ludeeus/action-shellcheck@2.0.0
         with:
