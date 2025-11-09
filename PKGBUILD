@@ -24,7 +24,7 @@ package() {
     
     # Install the desktop service menu file
     install -Dm644 "${srcdir}/kmarkdownify.desktop" \
-        "${pkgdir}/usr/share/kservices5/ServiceMenus/kmarkdownify.desktop"
+        "${pkgdir}/usr/share/kio/servicemenus/kmarkdownify.desktop"
     
     # Install example configuration file
     install -Dm644 "${srcdir}/config.example" \

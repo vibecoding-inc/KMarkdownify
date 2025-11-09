@@ -62,8 +62,8 @@ cd KMarkdownify
 # Install script
 sudo install -Dm755 kmarkdownify.sh /usr/local/bin/kmarkdownify.sh
 
-# Install service menu
-sudo install -Dm644 kmarkdownify.desktop /usr/share/kservices5/ServiceMenus/kmarkdownify.desktop
+# Install service menu (system-wide)
+sudo install -Dm644 kmarkdownify.desktop /usr/share/kio/servicemenus/kmarkdownify.desktop
 
 # Or for user-only installation:
 # mkdir -p ~/.local/share/kio/servicemenus
@@ -143,10 +143,10 @@ killall dolphin
 
 **Solution 2:** Check installation path
 ```bash
-# For KDE 5
-ls -l /usr/share/kservices5/ServiceMenus/kmarkdownify.desktop
+# For system-wide installation
+ls -l /usr/share/kio/servicemenus/kmarkdownify.desktop
 
-# For KDE 6/Plasma 6
+# For user-only installation
 ls -l ~/.local/share/kio/servicemenus/kmarkdownify.desktop
 ```
 
@@ -198,9 +198,9 @@ sudo pacman -R kmarkdownify
 # Remove script
 sudo rm /usr/local/bin/kmarkdownify.sh
 
-# Remove service menu
-sudo rm /usr/share/kservices5/ServiceMenus/kmarkdownify.desktop
-# or
+# Remove service menu (system-wide)
+sudo rm /usr/share/kio/servicemenus/kmarkdownify.desktop
+# or (user-only)
 rm ~/.local/share/kio/servicemenus/kmarkdownify.desktop
 
 # Remove configuration (optional)
