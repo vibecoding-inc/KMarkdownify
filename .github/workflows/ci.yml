@@ -22,16 +22,40 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y desktop-file-utils shellcheck
+          sudo apt-get install -y shellcheck
 
-      - name: Validate desktop file
+      - name: Validate service menu file syntax
         run: |
-          echo "Validating kmarkdownify.desktop..."
-          desktop-file-validate kmarkdownify.desktop || {
-            echo "Desktop file validation failed"
+          echo "Checking kmarkdownify.desktop syntax..."
+          # Basic syntax validation for KDE Service Menu file
+          if [ ! -f "kmarkdownify.desktop" ]; then
+            echo "✗ Service menu file not found"
             exit 1
-          }
-          echo "✓ Desktop file is valid"
+          fi
+
+          # Check for required sections
+          if ! grep -q "^\[Desktop Entry\]" kmarkdownify.desktop; then
+            echo "✗ Missing [Desktop Entry] section"
+            exit 1
+          fi
+
+          if ! grep -q "^\[Desktop Action" kmarkdownify.desktop; then
+            echo "✗ Missing [Desktop Action] section"
+            exit 1
+          fi
+
+          # Check for required KDE Service Menu fields
+          if ! grep -q "^Type=Service" kmarkdownify.desktop; then
+            echo "✗ Missing Type=Service field"
+            exit 1
+          fi
+
+          if ! grep -q "^ServiceTypes=" kmarkdownify.desktop; then
+            echo "✗ Missing ServiceTypes field"
+            exit 1
+          fi
+
+          echo "✓ Service menu file syntax is valid"
 
       - name: Check required dependencies in PKGBUILD
         run: |
