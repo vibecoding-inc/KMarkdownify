@@ -64,7 +64,7 @@ if [ ! -f "$API_KEY_FILE" ]; then
     error_exit "API key not found. Please create file: $API_KEY_FILE\n\nYou can get an API key from: https://openrouter.ai/keys"
 fi
 
-API_KEY=$(cat "$API_KEY_FILE" | tr -d '[:space:]')
+API_KEY=$(tr -d '[:space:]' < "$API_KEY_FILE")
 
 if [ -z "$API_KEY" ]; then
     error_exit "API key file is empty: $API_KEY_FILE"
