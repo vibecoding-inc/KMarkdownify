@@ -12,44 +12,52 @@ optdepends=(
     'kdialog: for KDE dialog confirmations'
     'libnotify: for desktop notifications'
 )
-source=("Cargo.toml"
-        "Cargo.lock"
-        "src/main.rs"
-        "kmarkdownify.desktop"
-        "config.example"
-        "default_prompt.txt"
-        "metadata_prompt.txt")
-sha256sums=('SKIP'
-            'SKIP'
-            'SKIP'
-            'SKIP'
-            'SKIP'
-            'SKIP'
-            'SKIP')
+
+# For local builds, we'll use the current directory
+# For AUR/releases, this should be changed to download from a release tarball
+_is_local_build=true
+
+if [ "$_is_local_build" = true ]; then
+    source=()
+    sha256sums=()
+else
+    source=("${pkgname}-${pkgver}.tar.gz::https://github.com/profiluefter/KMarkdownify/archive/refs/tags/v${pkgver}.tar.gz")
+    sha256sums=('SKIP')
+fi
 
 build() {
-    cd "${srcdir}"
+    if [ "$_is_local_build" = true ]; then
+        cd "${startdir}"
+    else
+        cd "${srcdir}/KMarkdownify-${pkgver}"
+    fi
     
     # Build the Rust binary
     cargo build --release --locked
 }
 
 package() {
+    if [ "$_is_local_build" = true ]; then
+        cd "${startdir}"
+    else
+        cd "${srcdir}/KMarkdownify-${pkgver}"
+    fi
+    
     # Install the binary
-    install -Dm755 "${srcdir}/target/release/kmarkdownify" "${pkgdir}/usr/local/bin/kmarkdownify"
+    install -Dm755 "target/release/kmarkdownify" "${pkgdir}/usr/local/bin/kmarkdownify"
     
     # Install the desktop service menu file
-    install -Dm644 "${srcdir}/kmarkdownify.desktop" \
+    install -Dm644 "kmarkdownify.desktop" \
         "${pkgdir}/usr/share/kio/servicemenus/kmarkdownify.desktop"
     
     # Install prompt files
-    install -Dm644 "${srcdir}/default_prompt.txt" \
+    install -Dm644 "default_prompt.txt" \
         "${pkgdir}/usr/share/${pkgname}/prompts/default_prompt.txt"
-    install -Dm644 "${srcdir}/metadata_prompt.txt" \
+    install -Dm644 "metadata_prompt.txt" \
         "${pkgdir}/usr/share/${pkgname}/prompts/metadata_prompt.txt"
     
     # Install example configuration file
-    install -Dm644 "${srcdir}/config.example" \
+    install -Dm644 "config.example" \
         "${pkgdir}/usr/share/doc/${pkgname}/config.example"
     
     # Create a README for the package
