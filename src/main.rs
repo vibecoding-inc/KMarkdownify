@@ -353,13 +353,21 @@ fn check_overwrite(output_path: &Path) -> Result<bool> {
     }
 }
 
-fn convert_pdf(pdf_path: &Path, config: &Config, mode: Mode, notif: &NotificationManager) -> Result<String> {
+fn convert_pdf(
+    pdf_path: &Path,
+    config: &Config,
+    mode: Mode,
+    notif: &NotificationManager,
+) -> Result<String> {
     let action = match mode {
         Mode::Convert => "Converting",
         Mode::Solve => "Solving",
     };
     
-    notif.update(&format!("Encoding PDF file for {}...", action.to_lowercase()));
+    notif.update(&format!(
+        "Encoding PDF file for {}...",
+        action.to_lowercase()
+    ));
 
     // Read and encode PDF
     let pdf_data =
@@ -464,7 +472,10 @@ fn main() -> Result<()> {
 
     // Generate output filename with appropriate suffix
     let output_path = if mode == Mode::Solve {
-        let stem = pdf_path.file_stem().and_then(|s| s.to_str()).unwrap_or("output");
+        let stem = pdf_path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("output");
         pdf_path.with_file_name(format!("{}_solved.md", stem))
     } else {
         pdf_path.with_extension("md")
