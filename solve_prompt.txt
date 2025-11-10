@@ -21,9 +21,11 @@ Format your response as follows:
 1. Start with YAML frontmatter containing the metadata (enclosed in --- delimiters)
 2. Follow with each question and its solution in Markdown format
 
+CRITICAL FORMATTING RULE: The YAML frontmatter MUST be at the very beginning of your response, NOT inside a code block. It should be raw YAML frontmatter delimited by --- lines, followed directly by the Markdown content.
+
 Only return the formatted output without any additional commentary.
 
-Example format:
+Example format (note: YAML is NOT in a code block):
 ---
 Title: Assignment Title or N/A
 Author: Student Name or N/A

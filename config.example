@@ -13,10 +13,13 @@ MODEL=mistralai/pixtral-large-latest
 # Default: 0.1 (recommended for OCR tasks)
 TEMPERATURE=0.1
 
-# Maximum tokens for response
-# Increase for longer documents
-# Default: 8000 (approximately 6000 words)
-MAX_TOKENS=8000
+# Maximum tokens per page for response
+# The total tokens will be calculated as: MAX_TOKENS_PER_PAGE * number_of_pages
+# This ensures adequate token budget regardless of document length
+# Default: 8000 per page (approximately 6000 words per page)
+# - For transcribe/convert mode: ~2 pages worth of content per page
+# - For solve mode: ~2/3 page worth of content per page (due to solutions)
+MAX_TOKENS_PER_PAGE=8000
 
 # Enable metadata extraction
 # When enabled, the system will attempt to extract document metadata
