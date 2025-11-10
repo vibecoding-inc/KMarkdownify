@@ -26,7 +26,7 @@ fi
 # Default values (can be overridden by config file)
 MODEL="mistralai/pixtral-large-latest"
 TEMPERATURE="0.1"
-MAX_TOKENS="8000"
+MAX_TOKENS_PER_PAGE="8000"
 EXTRACT_METADATA="true"
 METADATA_FIELDS="Title,Author,Course,Due Date"
 CUSTOM_PROMPT=""
@@ -46,7 +46,8 @@ if [ -f "$CONFIG_FILE" ]; then
         case "$key" in
             MODEL) MODEL="$value" ;;
             TEMPERATURE) TEMPERATURE="$value" ;;
-            MAX_TOKENS) MAX_TOKENS="$value" ;;
+            MAX_TOKENS) MAX_TOKENS_PER_PAGE="$value" ;; # Backwards compatibility
+            MAX_TOKENS_PER_PAGE) MAX_TOKENS_PER_PAGE="$value" ;;
             EXTRACT_METADATA) EXTRACT_METADATA="$value" ;;
             METADATA_FIELDS) METADATA_FIELDS="$value" ;;
             CUSTOM_PROMPT) CUSTOM_PROMPT="$value" ;;
@@ -198,12 +199,57 @@ if ! file "$PDF_FILE" | grep -q "PDF"; then
     error_exit "File is not a PDF: $PDF_FILE"
 fi
 
+# Count PDF pages and calculate max tokens
+PDF_PAGE_COUNT=$(count_pdf_pages "$PDF_FILE")
+MAX_TOKENS=$((PDF_PAGE_COUNT * MAX_TOKENS_PER_PAGE))
+echo -e "${GREEN}PDF has ${PDF_PAGE_COUNT} page(s). Using ${MAX_TOKENS} max tokens.${NC}"
+
 # Check for required commands
 for cmd in curl base64 jq; do
     if ! command -v "$cmd" &> /dev/null; then
         error_exit "Required command not found: $cmd. Please install it first."
     fi
 done
+
+# Function to count PDF pages
+# Returns the number of pages or 1 as fallback
+count_pdf_pages() {
+    local pdf_file="$1"
+    local page_count=1
+    
+    # Method 1: Try pdfinfo (from poppler-utils)
+    if command -v pdfinfo &> /dev/null; then
+        page_count=$(pdfinfo "$pdf_file" 2>/dev/null | grep "^Pages:" | awk '{print $2}')
+        if [[ "$page_count" =~ ^[0-9]+$ ]] && [ "$page_count" -gt 0 ]; then
+            echo "$page_count"
+            return 0
+        fi
+    fi
+    
+    # Method 2: Try qpdf
+    if command -v qpdf &> /dev/null; then
+        page_count=$(qpdf --show-npages "$pdf_file" 2>/dev/null)
+        if [[ "$page_count" =~ ^[0-9]+$ ]] && [ "$page_count" -gt 0 ]; then
+            echo "$page_count"
+            return 0
+        fi
+    fi
+    
+    # Method 3: Try gs (Ghostscript)
+    if command -v gs &> /dev/null; then
+        page_count=$(gs -q -dNODISPLAY -c "($pdf_file) (r) file runpdfbegin pdfpagecount = quit" 2>/dev/null)
+        if [[ "$page_count" =~ ^[0-9]+$ ]] && [ "$page_count" -gt 0 ]; then
+            echo "$page_count"
+            return 0
+        fi
+    fi
+    
+    # Fallback: Return 1 page and show warning
+    warning_message "Could not determine PDF page count. Using 1 page for token calculation."
+    warning_message "Install 'poppler-utils' (pdfinfo) for accurate page counting."
+    echo "1"
+    return 0
+}
 
 # Check for API key
 if [ ! -f "$API_KEY_FILE" ]; then
@@ -293,9 +339,11 @@ Format your response as follows:
 1. Start with YAML frontmatter containing the metadata (enclosed in --- delimiters)
 2. Follow with the main content in Markdown format
 
+CRITICAL FORMATTING RULE: The YAML frontmatter MUST be at the very beginning of your response, NOT inside a code block. It should be raw YAML frontmatter delimited by --- lines, followed directly by the Markdown content.
+
 Only return the formatted output without any explanations or additional commentary.
 
-Example format:
+Example format (note: YAML is NOT in a code block):
 ---
 Title: Document Title or N/A
 Author: Author Name or N/A

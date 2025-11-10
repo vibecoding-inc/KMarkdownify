@@ -14,7 +14,7 @@ struct Config {
     api_key: String,
     model: String,
     temperature: f32,
-    max_tokens: u32,
+    max_tokens_per_page: u32,
     extract_metadata: bool,
     metadata_fields: String,
     custom_prompt: Option<String>,
@@ -216,7 +216,7 @@ fn load_config() -> Result<Config> {
         api_key,
         model: "mistralai/pixtral-large-latest".to_string(),
         temperature: 0.1,
-        max_tokens: 8000,
+        max_tokens_per_page: 8000,
         extract_metadata: true,
         metadata_fields: "Title,Author,Course,Due Date".to_string(),
         custom_prompt: None,
@@ -239,7 +239,8 @@ fn load_config() -> Result<Config> {
                 match key {
                     "MODEL" => config.model = value.to_string(),
                     "TEMPERATURE" => config.temperature = value.parse().unwrap_or(0.1),
-                    "MAX_TOKENS" => config.max_tokens = value.parse().unwrap_or(8000),
+                    "MAX_TOKENS" => config.max_tokens_per_page = value.parse().unwrap_or(8000), // Backwards compatibility
+                    "MAX_TOKENS_PER_PAGE" => config.max_tokens_per_page = value.parse().unwrap_or(8000),
                     "EXTRACT_METADATA" => config.extract_metadata = value == "true",
                     "METADATA_FIELDS" => config.metadata_fields = value.to_string(),
                     "CUSTOM_PROMPT" => config.custom_prompt = Some(value.to_string()),
@@ -328,6 +329,63 @@ fn check_dependencies() -> Result<()> {
     Ok(())
 }
 
+fn count_pdf_pages(pdf_path: &Path) -> Result<u32> {
+    // Method 1: Try pdfinfo (from poppler-utils)
+    if let Ok(output) = Command::new("pdfinfo").arg(pdf_path).output() {
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            for line in stdout.lines() {
+                if line.starts_with("Pages:") {
+                    if let Some(count_str) = line.split_whitespace().nth(1) {
+                        if let Ok(count) = count_str.parse::<u32>() {
+                            if count > 0 {
+                                return Ok(count);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Method 2: Try qpdf
+    if let Ok(output) = Command::new("qpdf").args(&["--show-npages", &pdf_path.to_string_lossy()]).output() {
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if let Ok(count) = stdout.parse::<u32>() {
+                if count > 0 {
+                    return Ok(count);
+                }
+            }
+        }
+    }
+
+    // Method 3: Try gs (Ghostscript)
+    if let Ok(output) = Command::new("gs")
+        .args(&[
+            "-q",
+            "-dNODISPLAY",
+            "-c",
+            &format!("({}) (r) file runpdfbegin pdfpagecount = quit", pdf_path.display()),
+        ])
+        .output()
+    {
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if let Ok(count) = stdout.parse::<u32>() {
+                if count > 0 {
+                    return Ok(count);
+                }
+            }
+        }
+    }
+
+    // Fallback: Return 1 page with warning
+    eprintln!("Warning: Could not determine PDF page count. Using 1 page for token calculation.");
+    eprintln!("Install 'poppler-utils' (pdfinfo) for accurate page counting.");
+    Ok(1)
+}
+
 fn check_overwrite(output_path: &Path) -> Result<bool> {
     if !output_path.exists() {
         return Ok(true);
@@ -364,6 +422,12 @@ fn convert_pdf(
         Mode::Solve => "Solving",
     };
 
+    // Count PDF pages
+    notif.update("Analyzing PDF file...");
+    let page_count = count_pdf_pages(pdf_path)?;
+    let max_tokens = page_count * config.max_tokens_per_page;
+    println!("PDF has {} page(s). Using {} max tokens.", page_count, max_tokens);
+
     notif.update(&format!(
         "Encoding PDF file for {}...",
         action.to_lowercase()
@@ -388,7 +452,7 @@ fn convert_pdf(
     let request = ApiRequest {
         model: config.model.clone(),
         temperature: config.temperature,
-        max_tokens: config.max_tokens,
+        max_tokens,
         messages: vec![Message {
             role: "user".to_string(),
             content: vec![
