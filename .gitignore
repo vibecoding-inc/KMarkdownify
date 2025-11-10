@@ -31,3 +31,8 @@ Thumbs.db
 .vscode/
 .idea/
 *.iml
+
+
+# Added by cargo
+
+/target

@@ -2,6 +2,8 @@
 
 A Plasma Dolphin service menu entry that converts PDF files to Markdown using OpenRouter API with Mistral OCR.
 
+**Version 3.0 - Now written in Rust for improved safety, reliability, and performance!**
+
 ## Features
 
 - 🐬 **Seamless Dolphin Integration** - Right-click context menu for PDF files
@@ -10,25 +12,36 @@ A Plasma Dolphin service menu entry that converts PDF files to Markdown using Op
 - 📊 **Metadata Extraction** - Automatically extracts Title, Author, Course, Due Date from PDFs
 - 🎯 **YAML Frontmatter** - Formats metadata as YAML frontmatter in markdown output
 - ⚙️ **Highly Configurable** - Customize model, temperature, prompts, and metadata fields
-- 🔔 **User-Friendly Notifications** - KDialog and fallback notification support
+- 🔔 **User-Friendly Notifications** - Desktop notifications for conversion progress
 - ⚡ **Simple Setup** - Easy configuration and installation
 - 🛡️ **Graceful Degradation** - Uses 'N/A' for metadata fields that cannot be found
+- 🦀 **Memory Safe** - Written in Rust for maximum safety and reliability
+- ⚡ **Fast Performance** - Compiled binary for optimal speed
+
+## What's New in v3.0
+
+- **Complete Rust Rewrite**: Entire application rewritten in Rust for:
+  - Memory safety without garbage collection
+  - Better error handling with Result types
+  - Type safety for API requests/responses
+  - More maintainable and less error-prone code
+  - No shell injection vulnerabilities
+  - Improved performance with compiled binary
+- **All Features Maintained**: Same functionality and configuration as v2.x
+- **Backward Compatible**: Uses same config files and API key location
 
 ## Requirements
 
 - Arch Linux (or any Linux distribution with manual installation)
-- Bash
-- curl
-- jq
-- coreutils
-- file
+- Rust toolchain (for building from source)
+- file command
 - KDE Plasma Desktop (for Dolphin integration)
 - OpenRouter API key (free tier available)
 
 ### Optional Dependencies
 
-- `kdialog` - For KDE-style dialog notifications
-- `libnotify` - For fallback notifications
+- `kdialog` - For KDE-style dialog confirmations
+- `libnotify` - For desktop notifications
 
 ## Installation
 
@@ -58,27 +71,32 @@ cd KMarkdownify
 2. Install required dependencies:
 ```bash
 # For Debian/Ubuntu
-sudo apt install bash curl jq coreutils file kdialog libnotify-bin
+sudo apt install cargo rustc file libdbus-1-dev kdialog libnotify-bin
 
 # For Fedora
-sudo dnf install bash curl jq coreutils file kdialog libnotify
+sudo dnf install cargo rust file dbus-devel kdialog libnotify
 
 # For Arch
-sudo pacman -S bash curl jq coreutils file kdialog libnotify
+sudo pacman -S rust file dbus kdialog libnotify
 ```
 
-3. Install the files:
+3. Build the binary:
 ```bash
-# Install the shell script
-sudo install -Dm755 kmarkdownify.sh /usr/local/bin/kmarkdownify.sh
+cargo build --release
+```
+
+4. Install the files:
+```bash
+# Install the binary
+sudo install -Dm755 target/release/kmarkdownify /usr/local/bin/kmarkdownify
 
 # Install the service menu
 sudo install -Dm644 kmarkdownify.desktop /usr/share/kio/servicemenus/kmarkdownify.desktop
 
 # Install prompt files
 sudo mkdir -p /usr/local/share/kmarkdownify/prompts
-sudo install -Dm644 prompts/default_prompt.txt /usr/local/share/kmarkdownify/prompts/default_prompt.txt
-sudo install -Dm644 prompts/metadata_prompt.txt /usr/local/share/kmarkdownify/prompts/metadata_prompt.txt
+sudo install -Dm644 default_prompt.txt /usr/local/share/kmarkdownify/prompts/default_prompt.txt
+sudo install -Dm644 metadata_prompt.txt /usr/local/share/kmarkdownify/prompts/metadata_prompt.txt
 
 # Install example configuration
 sudo mkdir -p /usr/share/doc/kmarkdownify
@@ -226,18 +244,18 @@ Due Date: 2025-11-15
 You can also run the script directly from the command line:
 
 ```bash
-/usr/local/bin/kmarkdownify.sh /path/to/your/file.pdf
+/usr/local/bin/kmarkdownify /path/to/your/file.pdf
 ```
 
 The converted Markdown file will be saved as `/path/to/your/file.md`
 
 ## How It Works
 
-1. The script receives the PDF file path from Dolphin's context menu
+1. The binary receives the PDF file path from Dolphin's context menu
 2. Loads configuration from `~/.config/kmarkdownify/config` (if present)
 3. Determines the appropriate system prompt (custom file, inline custom, or built-in)
-4. Encodes the PDF file to base64 format
-5. Constructs a JSON API request using `jq` with stdin to avoid argument length limits
+4. Encodes the PDF file to base64 format in memory
+5. Constructs a JSON API request using Rust's type-safe serialization
 6. Sends the PDF to OpenRouter API using the configured AI model (default: Mistral's Pixtral Large)
 7. The AI model performs OCR and extracts metadata (Title, Author, Course, Due Date) if enabled
 8. Converts the text to Markdown format with optional YAML frontmatter containing the metadata
@@ -263,20 +281,20 @@ OpenRouter offers a free tier with credits for testing. The Mistral Pixtral Larg
 - Ensure you have credits available in your OpenRouter account
 
 ### Missing dependencies
-- Install all required dependencies: `curl`, `jq`, `base64`, `file`
+- Install all required dependencies: `file`, `cargo`, `rust`
 - For notifications, install `kdialog` or `libnotify`
 
 ### Permission errors
-- Ensure the script is executable: `chmod +x /usr/local/bin/kmarkdownify.sh`
+- Ensure the binary is executable: `chmod +x /usr/local/bin/kmarkdownify`
 - Check that you can write to the directory containing the PDF
 
 ## Development
 
-### Testing the Script
+### Testing the Binary
 
 ```bash
 # Test with a sample PDF
-./kmarkdownify.sh /path/to/test.pdf
+./target/release/kmarkdownify /path/to/test.pdf
 
 # Check the output
 cat /path/to/test.md

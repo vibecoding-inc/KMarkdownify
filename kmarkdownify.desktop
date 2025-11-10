@@ -10,4 +10,4 @@ X-KDE-Icon=document-edit
 [Desktop Action ConvertToMarkdown]
 Name=Convert to Markdown
 Icon=text-markdown
-Exec=/usr/local/bin/kmarkdownify.sh %f
+Exec=/usr/local/bin/kmarkdownify %f

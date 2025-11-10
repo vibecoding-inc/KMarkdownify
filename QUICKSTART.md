@@ -31,7 +31,7 @@ sudo pacman -S bash curl jq coreutils file kdialog    # Arch
 # 2. Clone and install
 git clone https://github.com/profiluefter/KMarkdownify.git
 cd KMarkdownify
-sudo install -Dm755 kmarkdownify.sh /usr/local/bin/kmarkdownify.sh
+sudo install -Dm755 kmarkdownify /usr/local/bin/kmarkdownify
 sudo install -Dm644 kmarkdownify.desktop /usr/share/kio/servicemenus/kmarkdownify.desktop
 
 # 3. Refresh KDE menus
@@ -101,7 +101,7 @@ Test from command line first:
 curl -o /tmp/test.pdf "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
 
 # Convert it
-/usr/local/bin/kmarkdownify.sh /tmp/test.pdf
+/usr/local/bin/kmarkdownify /tmp/test.pdf
 
 # Check the result
 cat /tmp/test.md
