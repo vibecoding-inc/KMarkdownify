@@ -240,7 +240,9 @@ fn load_config() -> Result<Config> {
                     "MODEL" => config.model = value.to_string(),
                     "TEMPERATURE" => config.temperature = value.parse().unwrap_or(0.1),
                     "MAX_TOKENS" => config.max_tokens_per_page = value.parse().unwrap_or(8000), // Backwards compatibility
-                    "MAX_TOKENS_PER_PAGE" => config.max_tokens_per_page = value.parse().unwrap_or(8000),
+                    "MAX_TOKENS_PER_PAGE" => {
+                        config.max_tokens_per_page = value.parse().unwrap_or(8000)
+                    }
                     "EXTRACT_METADATA" => config.extract_metadata = value == "true",
                     "METADATA_FIELDS" => config.metadata_fields = value.to_string(),
                     "CUSTOM_PROMPT" => config.custom_prompt = Some(value.to_string()),
@@ -349,7 +351,10 @@ fn count_pdf_pages(pdf_path: &Path) -> Result<u32> {
     }
 
     // Method 2: Try qpdf
-    if let Ok(output) = Command::new("qpdf").args(&["--show-npages", &pdf_path.to_string_lossy()]).output() {
+    if let Ok(output) = Command::new("qpdf")
+        .args(["--show-npages", &pdf_path.to_string_lossy()])
+        .output()
+    {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
             if let Ok(count) = stdout.parse::<u32>() {
@@ -362,11 +367,14 @@ fn count_pdf_pages(pdf_path: &Path) -> Result<u32> {
 
     // Method 3: Try gs (Ghostscript)
     if let Ok(output) = Command::new("gs")
-        .args(&[
+        .args([
             "-q",
             "-dNODISPLAY",
             "-c",
-            &format!("({}) (r) file runpdfbegin pdfpagecount = quit", pdf_path.display()),
+            &format!(
+                "({}) (r) file runpdfbegin pdfpagecount = quit",
+                pdf_path.display()
+            ),
         ])
         .output()
     {
@@ -426,7 +434,10 @@ fn convert_pdf(
     notif.update("Analyzing PDF file...");
     let page_count = count_pdf_pages(pdf_path)?;
     let max_tokens = page_count * config.max_tokens_per_page;
-    println!("PDF has {} page(s). Using {} max tokens.", page_count, max_tokens);
+    println!(
+        "PDF has {} page(s). Using {} max tokens.",
+        page_count, max_tokens
+    );
 
     notif.update(&format!(
         "Encoding PDF file for {}...",
