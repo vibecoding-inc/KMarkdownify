@@ -363,7 +363,7 @@ fn convert_pdf(
         Mode::Convert => "Converting",
         Mode::Solve => "Solving",
     };
-    
+
     notif.update(&format!(
         "Encoding PDF file for {}...",
         action.to_lowercase()
