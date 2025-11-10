@@ -21,6 +21,13 @@ struct Config {
     system_prompt_file: Option<String>,
 }
 
+// Operation mode
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Mode {
+    Convert,
+    Solve,
+}
+
 // API request structures
 #[derive(Serialize)]
 struct ApiRequest {
@@ -246,7 +253,7 @@ fn load_config() -> Result<Config> {
     Ok(config)
 }
 
-fn get_prompt_text(config: &Config) -> Result<String> {
+fn get_prompt_text(config: &Config, mode: Mode) -> Result<String> {
     // Priority 1: Custom inline prompt
     if let Some(ref prompt) = config.custom_prompt {
         return Ok(prompt.clone());
@@ -271,67 +278,23 @@ fn get_prompt_text(config: &Config) -> Result<String> {
     // Priority 3: Built-in prompts
     let prompts_dir = get_prompts_dir();
 
-    if config.extract_metadata {
+    // If solve mode, use solve prompt
+    if mode == Mode::Solve {
+        let solve_prompt_path = prompts_dir.join("solve_prompt.txt");
+        let mut prompt = fs::read_to_string(&solve_prompt_path)
+            .with_context(|| format!("Solve prompt file not found at {:?}. Please ensure kmarkdownify is properly installed.", solve_prompt_path))?;
+        prompt = prompt.replace("{METADATA_FIELDS}", &config.metadata_fields);
+        Ok(prompt)
+    } else if config.extract_metadata {
         let metadata_prompt_path = prompts_dir.join("metadata_prompt.txt");
-        if metadata_prompt_path.exists() {
-            let mut prompt = fs::read_to_string(&metadata_prompt_path)?;
-            prompt = prompt.replace("{METADATA_FIELDS}", &config.metadata_fields);
-            return Ok(prompt);
-        }
-
-        // Fallback inline metadata prompt
-        Ok(format!(
-            "Please analyze this PDF document and extract both metadata and content.\n\
-            \n\
-            First, extract the following metadata fields if present in the document: {}. If a field cannot be found, use 'N/A'.\n\
-            \n\
-            Then, extract all text content from the PDF and convert it to clean, well-formatted Markdown.\n\
-            \n\
-            IMPORTANT: Transcribe the content EXACTLY as it appears in the document, including any typos, spelling errors, or grammatical mistakes. Do not correct or modify the actual text content.\n\
-            \n\
-            You may improve the formatting by:\n\
-            - Using appropriate Markdown syntax (headings, lists, tables, etc.)\n\
-            - Adding code blocks for code snippets\n\
-            - Using emphasis (bold, italic) for highlighted text\n\
-            - Preserving document structure\n\
-            \n\
-            Format your response as follows:\n\
-            1. Start with YAML frontmatter containing the metadata (enclosed in --- delimiters)\n\
-            2. Follow with the main content in Markdown format\n\
-            \n\
-            Only return the formatted output without any explanations or additional commentary.\n\
-            \n\
-            Example format:\n\
-            ---\n\
-            Title: Document Title or N/A\n\
-            Author: Author Name or N/A\n\
-            Course: Course Name or N/A\n\
-            Due Date: Date or N/A\n\
-            ---\n\
-            \n\
-            # Document Content Starts Here\n\
-            ....",
-            config.metadata_fields
-        ))
+        let mut prompt = fs::read_to_string(&metadata_prompt_path)
+            .with_context(|| format!("Metadata prompt file not found at {:?}. Please ensure kmarkdownify is properly installed.", metadata_prompt_path))?;
+        prompt = prompt.replace("{METADATA_FIELDS}", &config.metadata_fields);
+        Ok(prompt)
     } else {
         let default_prompt_path = prompts_dir.join("default_prompt.txt");
-        if default_prompt_path.exists() {
-            return fs::read_to_string(&default_prompt_path)
-                .context("Failed to read default prompt file");
-        }
-
-        // Fallback inline default prompt
-        Ok("Please extract all text content from this PDF document and convert it to clean, well-formatted Markdown.\n\
-            \n\
-            IMPORTANT: Transcribe the content EXACTLY as it appears in the document, including any typos, spelling errors, or grammatical mistakes. Do not correct or modify the actual text content.\n\
-            \n\
-            You may improve the formatting by:\n\
-            - Using appropriate Markdown syntax (headings, lists, tables, etc.)\n\
-            - Adding code blocks for code snippets\n\
-            - Using emphasis (bold, italic) for highlighted text\n\
-            - Preserving document structure\n\
-            \n\
-            Only return the Markdown text without any explanations or additional commentary.".to_string())
+        fs::read_to_string(&default_prompt_path)
+            .with_context(|| format!("Default prompt file not found at {:?}. Please ensure kmarkdownify is properly installed.", default_prompt_path))
     }
 }
 
@@ -390,8 +353,21 @@ fn check_overwrite(output_path: &Path) -> Result<bool> {
     }
 }
 
-fn convert_pdf(pdf_path: &Path, config: &Config, notif: &NotificationManager) -> Result<String> {
-    notif.update("Encoding PDF file...");
+fn convert_pdf(
+    pdf_path: &Path,
+    config: &Config,
+    mode: Mode,
+    notif: &NotificationManager,
+) -> Result<String> {
+    let action = match mode {
+        Mode::Convert => "Converting",
+        Mode::Solve => "Solving",
+    };
+
+    notif.update(&format!(
+        "Encoding PDF file for {}...",
+        action.to_lowercase()
+    ));
 
     // Read and encode PDF
     let pdf_data =
@@ -400,7 +376,7 @@ fn convert_pdf(pdf_path: &Path, config: &Config, notif: &NotificationManager) ->
 
     // Get prompt
     notif.update("Preparing API request...");
-    let prompt_text = get_prompt_text(config)?;
+    let prompt_text = get_prompt_text(config, mode)?;
 
     // Build request
     let pdf_filename = pdf_path
@@ -474,10 +450,19 @@ fn main() -> Result<()> {
     // Parse arguments
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
-        anyhow::bail!("No PDF file provided. Usage: kmarkdownify <pdf-file>");
+        anyhow::bail!("No PDF file provided. Usage: kmarkdownify [--solve] <pdf-file>");
     }
 
-    let pdf_path = Path::new(&args[1]);
+    // Check for mode flag
+    let (mode, pdf_arg_index) = if args.len() >= 3 && args[1] == "--solve" {
+        (Mode::Solve, 2)
+    } else if args[1] == "--solve" {
+        anyhow::bail!("No PDF file provided. Usage: kmarkdownify [--solve] <pdf-file>");
+    } else {
+        (Mode::Convert, 1)
+    };
+
+    let pdf_path = Path::new(&args[pdf_arg_index]);
 
     // Verify PDF
     verify_pdf(pdf_path)?;
@@ -485,33 +470,46 @@ fn main() -> Result<()> {
     // Load configuration
     let config = load_config()?;
 
-    // Generate output filename
-    let output_path = pdf_path.with_extension("md");
+    // Generate output filename with appropriate suffix
+    let output_path = if mode == Mode::Solve {
+        let stem = pdf_path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("output");
+        pdf_path.with_file_name(format!("{}_solved.md", stem))
+    } else {
+        pdf_path.with_extension("md")
+    };
 
     // Check if output exists and get user confirmation
     if !check_overwrite(&output_path)? {
-        println!("Conversion cancelled by user.");
+        println!("Operation cancelled by user.");
         return Ok(());
     }
 
     // Initialize notification manager
     let mut notif = NotificationManager::new();
+    let action_title = match mode {
+        Mode::Convert => "Converting PDF to Markdown",
+        Mode::Solve => "Solving PDF Assignments",
+    };
     notif.show_loading(
         "KMarkdownify",
-        "Converting PDF to Markdown...\nThis may take a moment.",
+        &format!("{}...\nThis may take a moment.", action_title),
     );
 
-    // Convert PDF
-    match convert_pdf(pdf_path, &config, &notif) {
+    // Convert/Solve PDF
+    match convert_pdf(pdf_path, &config, mode, &notif) {
         Ok(markdown_content) => {
             notif.update(&format!("Saving to file: {:?}", output_path));
             fs::write(&output_path, markdown_content)
                 .with_context(|| format!("Failed to write output file: {:?}", output_path))?;
 
-            notif.success(&format!(
-                "✓ Conversion complete!\n\nSaved to: {:?}",
-                output_path
-            ));
+            let success_msg = match mode {
+                Mode::Convert => format!("✓ Conversion complete!\n\nSaved to: {:?}", output_path),
+                Mode::Solve => format!("✓ Solutions complete!\n\nSaved to: {:?}", output_path),
+            };
+            notif.success(&success_msg);
             Ok(())
         }
         Err(e) => {
