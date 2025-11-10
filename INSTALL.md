@@ -51,7 +51,7 @@ dolphin &
 1. **Install dependencies:**
 ```bash
 sudo apt update
-sudo apt install bash curl jq coreutils file kdialog libnotify-bin git
+sudo apt install cargo rustc file libdbus-1-dev kdialog libnotify-bin git
 ```
 
 2. **Clone and install:**
@@ -60,7 +60,7 @@ git clone https://github.com/profiluefter/KMarkdownify.git
 cd KMarkdownify
 
 # Install script
-sudo install -Dm755 kmarkdownify.sh /usr/local/bin/kmarkdownify.sh
+sudo install -Dm755 kmarkdownify /usr/local/bin/kmarkdownify
 
 # Install service menu (system-wide)
 sudo install -Dm644 kmarkdownify.desktop /usr/share/kio/servicemenus/kmarkdownify.desktop
@@ -88,7 +88,7 @@ kbuildsycoca5 --noincremental
 
 1. **Install dependencies:**
 ```bash
-sudo dnf install bash curl jq coreutils file kdialog libnotify git
+sudo dnf install cargo rustc file libdbus-1-dev kdialog libnotify git
 ```
 
 2. **Follow the same installation steps as Debian/Ubuntu above.**
@@ -97,7 +97,7 @@ sudo dnf install bash curl jq coreutils file kdialog libnotify git
 
 1. **Install dependencies:**
 ```bash
-sudo zypper install bash curl jq coreutils file kdialog libnotify-tools git
+sudo zypper install cargo rustc file libdbus-1-dev kdialog libnotify-tools git
 ```
 
 2. **Follow the same installation steps as Debian/Ubuntu above.**
@@ -134,10 +134,10 @@ Test the installation from command line:
 
 ```bash
 # This should show the error about needing a PDF file
-/usr/local/bin/kmarkdownify.sh
+/usr/local/bin/kmarkdownify
 
 # Test with a PDF file
-/usr/local/bin/kmarkdownify.sh /path/to/your/test.pdf
+/usr/local/bin/kmarkdownify /path/to/your/test.pdf
 ```
 
 ## Troubleshooting Installation
@@ -170,10 +170,10 @@ kbuildsycoca5 --noincremental
 
 ```bash
 # Check if script exists
-ls -l /usr/local/bin/kmarkdownify.sh
+ls -l /usr/local/bin/kmarkdownify
 
 # Make it executable if needed
-sudo chmod +x /usr/local/bin/kmarkdownify.sh
+sudo chmod +x /usr/local/bin/kmarkdownify
 
 # Check if /usr/local/bin is in your PATH
 echo $PATH | grep /usr/local/bin
@@ -205,7 +205,7 @@ sudo pacman -R kmarkdownify
 ### Manual Installation
 ```bash
 # Remove script
-sudo rm /usr/local/bin/kmarkdownify.sh
+sudo rm /usr/local/bin/kmarkdownify
 
 # Remove service menu (system-wide)
 sudo rm /usr/share/kio/servicemenus/kmarkdownify.desktop

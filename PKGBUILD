@@ -1,49 +1,69 @@
 # Maintainer: Your Name <your.email@example.com>
 pkgname=kmarkdownify
-pkgver=2.1.0
+pkgver=3.0.0
 pkgrel=1
-pkgdesc="Plasma Dolphin service menu for converting PDF files to Markdown using OpenRouter API with Mistral OCR"
-arch=('any')
+pkgdesc="Plasma Dolphin service menu for converting PDF files to Markdown using OpenRouter API (Rust rewrite)"
+arch=('x86_64' 'aarch64')
 url="https://github.com/profiluefter/KMarkdownify"
 license=('MIT')
-depends=('bash' 'curl' 'jq' 'coreutils' 'file')
+depends=('file' 'dbus')
+makedepends=('rust' 'cargo')
 optdepends=(
-    'kdialog: for KDE dialog notifications'
-    'libnotify: for fallback notifications'
+    'kdialog: for KDE dialog confirmations'
+    'libnotify: for desktop notifications'
 )
-source=("kmarkdownify.sh"
-        "kmarkdownify.desktop"
-        "config.example"
-        "default_prompt.txt"
-        "metadata_prompt.txt")
-sha256sums=('SKIP'
-            'SKIP'
-            'SKIP'
-            'SKIP'
-            'SKIP')
+
+# For local builds, we'll use the current directory
+# For AUR/releases, this should be changed to download from a release tarball
+_is_local_build=true
+
+if [ "$_is_local_build" = true ]; then
+    source=()
+    sha256sums=()
+else
+    source=("${pkgname}-${pkgver}.tar.gz::https://github.com/profiluefter/KMarkdownify/archive/refs/tags/v${pkgver}.tar.gz")
+    sha256sums=('SKIP')
+fi
+
+build() {
+    if [ "$_is_local_build" = true ]; then
+        cd "${startdir}"
+    else
+        cd "${srcdir}/KMarkdownify-${pkgver}"
+    fi
+    
+    # Build the Rust binary
+    cargo build --release --locked
+}
 
 package() {
-    # Install the shell script
-    install -Dm755 "${srcdir}/kmarkdownify.sh" "${pkgdir}/usr/local/bin/kmarkdownify.sh"
+    if [ "$_is_local_build" = true ]; then
+        cd "${startdir}"
+    else
+        cd "${srcdir}/KMarkdownify-${pkgver}"
+    fi
+    
+    # Install the binary
+    install -Dm755 "target/release/kmarkdownify" "${pkgdir}/usr/local/bin/kmarkdownify"
     
     # Install the desktop service menu file
-    install -Dm644 "${srcdir}/kmarkdownify.desktop" \
+    install -Dm644 "kmarkdownify.desktop" \
         "${pkgdir}/usr/share/kio/servicemenus/kmarkdownify.desktop"
     
     # Install prompt files
-    install -Dm644 "${srcdir}/default_prompt.txt" \
+    install -Dm644 "default_prompt.txt" \
         "${pkgdir}/usr/share/${pkgname}/prompts/default_prompt.txt"
-    install -Dm644 "${srcdir}/metadata_prompt.txt" \
+    install -Dm644 "metadata_prompt.txt" \
         "${pkgdir}/usr/share/${pkgname}/prompts/metadata_prompt.txt"
     
     # Install example configuration file
-    install -Dm644 "${srcdir}/config.example" \
+    install -Dm644 "config.example" \
         "${pkgdir}/usr/share/doc/${pkgname}/config.example"
     
     # Create a README for the package
     cat > "${pkgdir}/usr/share/doc/${pkgname}/README" << 'EOF'
-KMarkdownify - PDF to Markdown Converter
-=========================================
+KMarkdownify - PDF to Markdown Converter (Rust v3.0)
+=====================================================
 
 Setup Instructions:
 -------------------
@@ -71,6 +91,15 @@ Usage:
 3. Wait for the conversion to complete
 4. The markdown file will be saved in the same directory with .md extension
 
+What's New in v3.0:
+-------------------
+
+- Rewritten in Rust for improved safety, reliability, and performance
+- No shell script injection vulnerabilities
+- Better error handling and type safety
+- Faster execution
+- All features from v2.x maintained
+
 Features:
 ---------
 
@@ -78,6 +107,7 @@ Features:
 - Configurable models and prompts
 - YAML frontmatter support
 - Graceful handling of missing metadata (uses N/A)
+- Memory safe implementation in Rust
 
 Requirements:
 -------------

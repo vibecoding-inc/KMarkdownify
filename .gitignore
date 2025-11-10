@@ -3,7 +3,6 @@
 *.pkg.tar.zst
 *.pkg.tar.xz
 pkg/
-src/
 
 # Test files (but keep documentation)
 test*.pdf
@@ -31,3 +30,8 @@ Thumbs.db
 .vscode/
 .idea/
 *.iml
+
+
+# Added by cargo
+
+/target
