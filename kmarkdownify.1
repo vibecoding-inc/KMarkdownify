@@ -1,0 +1,160 @@
+.TH KMARKDOWNIFY 1 "November 2025" "KMarkdownify 3.0" "User Commands"
+.SH NAME
+kmarkdownify \- Convert PDF files to Markdown or solve PDF assignments using AI
+.SH SYNOPSIS
+.B kmarkdownify
+[\fB\-\-solve\fR]
+.I FILE
+.SH DESCRIPTION
+.B kmarkdownify
+is a tool that converts PDF files to Markdown format or automatically solves assignments within PDF files using the OpenRouter API with Mistral's Pixtral Large OCR model. It integrates seamlessly with KDE Plasma's Dolphin file manager through a context menu service.
+.PP
+The tool can operate in two modes:
+.IP \(bu 2
+.B Convert mode
+(default): Extracts text from PDFs and converts to clean Markdown format with optional metadata extraction
+.IP \(bu 2
+.B Solve mode
+(\fB\-\-solve\fR): Analyzes assignment PDFs and provides complete solutions for all questions
+.SH OPTIONS
+.TP
+.B \-\-solve
+Enable solve mode to automatically solve all assignments, exercises, or problems within the PDF file. The output will include the original questions and detailed solutions.
+.TP
+.I FILE
+Path to the PDF file to process. The file must be a valid PDF document.
+.SH FILES
+.TP
+.B ~/.config/kmarkdownify/api_key
+Required file containing your OpenRouter API key. Must be readable only by the user (permissions 600 recommended).
+.TP
+.B ~/.config/kmarkdownify/config
+Optional configuration file for customizing model, temperature, prompts, and metadata extraction settings.
+.TP
+.B /usr/share/kmarkdownify/prompts/default_prompt.txt
+Default prompt for simple text extraction without metadata.
+.TP
+.B /usr/share/kmarkdownify/prompts/metadata_prompt.txt
+Default prompt for text extraction with metadata and YAML frontmatter.
+.TP
+.B /usr/share/kmarkdownify/prompts/solve_prompt.txt
+Default prompt for solving assignments and problems in PDFs.
+.TP
+.B /usr/share/kio/servicemenus/kmarkdownify.desktop
+KDE service menu definition file for Dolphin integration.
+.SH CONFIGURATION
+The configuration file (~/.config/kmarkdownify/config) supports the following options:
+.TP
+.B MODEL
+AI model to use (default: mistralai/pixtral-large-latest)
+.TP
+.B TEMPERATURE
+Model temperature from 0.0 to 1.0 (default: 0.1)
+.TP
+.B MAX_TOKENS
+Maximum response length (default: 8000)
+.TP
+.B EXTRACT_METADATA
+Enable metadata extraction: true or false (default: true)
+.TP
+.B METADATA_FIELDS
+Comma-separated list of metadata fields to extract (default: "Title,Author,Course,Due Date")
+.TP
+.B SYSTEM_PROMPT_FILE
+Path to custom prompt file (optional)
+.TP
+.B CUSTOM_PROMPT
+Inline custom prompt text (optional)
+.SH EXAMPLES
+.TP
+Convert a PDF to Markdown:
+.B kmarkdownify
+/path/to/document.pdf
+.PP
+Output will be saved as /path/to/document.md
+.TP
+Solve assignments in a PDF:
+.B kmarkdownify \-\-solve
+/path/to/homework.pdf
+.PP
+Output will be saved as /path/to/homework_solved.md
+.TP
+Using from Dolphin:
+Right-click any PDF file → KMarkdownify → Convert to Markdown (or Solve Assignments)
+.SH OUTPUT
+.TP
+.B Convert mode
+Creates a .md file in the same directory as the input PDF with the document content in Markdown format. If metadata extraction is enabled, the file will start with YAML frontmatter containing extracted metadata.
+.TP
+.B Solve mode
+Creates a _solved.md file in the same directory containing the original questions and detailed step-by-step solutions for each problem.
+.SH SETUP
+.TP
+1. Obtain an OpenRouter API key from https://openrouter.ai/keys
+.TP
+2. Create the configuration directory:
+.nf
+.RS
+mkdir -p ~/.config/kmarkdownify
+.RE
+.fi
+.TP
+3. Save your API key:
+.nf
+.RS
+echo "YOUR_API_KEY_HERE" > ~/.config/kmarkdownify/api_key
+chmod 600 ~/.config/kmarkdownify/api_key
+.RE
+.fi
+.TP
+4. (Optional) Create custom configuration:
+.nf
+.RS
+cp /usr/share/doc/kmarkdownify/config.example ~/.config/kmarkdownify/config
+.RE
+.fi
+.SH REQUIREMENTS
+.TP
+.B Runtime dependencies:
+file, dbus, curl (for API requests)
+.TP
+.B Optional dependencies:
+kdialog (for KDE dialogs), libnotify (for desktop notifications)
+.TP
+.B API requirements:
+Active OpenRouter API key with available credits, internet connection
+.SH DIAGNOSTICS
+The program exits with status 0 on success, or >0 if an error occurs. Error messages are displayed via desktop notifications and stderr.
+.PP
+Common errors:
+.TP
+.B "API key not found"
+Create ~/.config/kmarkdownify/api_key with your OpenRouter API key
+.TP
+.B "File is not a PDF"
+Ensure the input file is a valid PDF document
+.TP
+.B "API Error"
+Check your API key validity and available credits at https://openrouter.ai
+.SH NOTES
+.PP
+.B API Costs:
+OpenRouter offers a free tier with credits for testing. Check current pricing at https://openrouter.ai/models
+.PP
+.B Performance:
+Conversion time depends on PDF size and complexity. Large documents may take several minutes to process.
+.PP
+.B Solve Mode:
+The solve feature uses AI to generate solutions. While it provides detailed step-by-step solutions, always verify the accuracy of results for critical work.
+.SH BUGS
+Report bugs to: https://github.com/profiluefter/KMarkdownify/issues
+.SH AUTHOR
+Written by KMarkdownify Contributors.
+.SH COPYRIGHT
+Copyright \(co 2025 KMarkdownify Contributors.
+Licensed under the MIT License.
+.SH SEE ALSO
+.BR dolphin (1),
+.BR file (1)
+.PP
+Full documentation and source code: https://github.com/profiluefter/KMarkdownify

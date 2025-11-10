@@ -21,6 +21,13 @@ struct Config {
     system_prompt_file: Option<String>,
 }
 
+// Operation mode
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Mode {
+    Convert,
+    Solve,
+}
+
 // API request structures
 #[derive(Serialize)]
 struct ApiRequest {
@@ -246,7 +253,7 @@ fn load_config() -> Result<Config> {
     Ok(config)
 }
 
-fn get_prompt_text(config: &Config) -> Result<String> {
+fn get_prompt_text(config: &Config, mode: Mode) -> Result<String> {
     // Priority 1: Custom inline prompt
     if let Some(ref prompt) = config.custom_prompt {
         return Ok(prompt.clone());
@@ -270,6 +277,67 @@ fn get_prompt_text(config: &Config) -> Result<String> {
 
     // Priority 3: Built-in prompts
     let prompts_dir = get_prompts_dir();
+
+    // If solve mode, use solve prompt
+    if mode == Mode::Solve {
+        let solve_prompt_path = prompts_dir.join("solve_prompt.txt");
+        if solve_prompt_path.exists() {
+            let mut prompt = fs::read_to_string(&solve_prompt_path)?;
+            prompt = prompt.replace("{METADATA_FIELDS}", &config.metadata_fields);
+            return Ok(prompt);
+        }
+
+        // Fallback inline solve prompt
+        return Ok(format!(
+            "Please analyze this PDF document which contains assignments, exercises, or problems to solve.\n\
+            \n\
+            First, extract the following metadata fields if present in the document: {}. If a field cannot be found, use 'N/A'.\n\
+            \n\
+            Then, extract all assignments, questions, or problems from the PDF, and provide COMPLETE SOLUTIONS for each one. Your response should:\n\
+            \n\
+            1. Clearly identify each question or problem\n\
+            2. Provide a detailed, step-by-step solution\n\
+            3. Show all work and reasoning\n\
+            4. Include final answers\n\
+            5. Format everything in clean, well-formatted Markdown\n\
+            \n\
+            IMPORTANT: \n\
+            - Extract the original question text EXACTLY as it appears\n\
+            - Provide comprehensive solutions with clear explanations\n\
+            - Use appropriate Markdown syntax (headings, lists, tables, code blocks, math notation)\n\
+            - For mathematical problems, use LaTeX notation within $ or $$ delimiters\n\
+            - For coding problems, include complete, working code in code blocks\n\
+            \n\
+            Format your response as follows:\n\
+            1. Start with YAML frontmatter containing the metadata (enclosed in --- delimiters)\n\
+            2. Follow with each question and its solution in Markdown format\n\
+            \n\
+            Only return the formatted output without any additional commentary.\n\
+            \n\
+            Example format:\n\
+            ---\n\
+            Title: Assignment Title or N/A\n\
+            Author: Student Name or N/A\n\
+            Course: Course Name or N/A\n\
+            Due Date: Date or N/A\n\
+            ---\n\
+            \n\
+            # Question 1\n\
+            \n\
+            [Original question text]\n\
+            \n\
+            ## Solution\n\
+            \n\
+            [Detailed solution with all steps and reasoning]\n\
+            \n\
+            **Answer:** [Final answer]\n\
+            \n\
+            # Question 2\n\
+            \n\
+            [Continue with next question...]",
+            config.metadata_fields
+        ));
+    }
 
     if config.extract_metadata {
         let metadata_prompt_path = prompts_dir.join("metadata_prompt.txt");
@@ -390,8 +458,13 @@ fn check_overwrite(output_path: &Path) -> Result<bool> {
     }
 }
 
-fn convert_pdf(pdf_path: &Path, config: &Config, notif: &NotificationManager) -> Result<String> {
-    notif.update("Encoding PDF file...");
+fn convert_pdf(pdf_path: &Path, config: &Config, mode: Mode, notif: &NotificationManager) -> Result<String> {
+    let action = match mode {
+        Mode::Convert => "Converting",
+        Mode::Solve => "Solving",
+    };
+    
+    notif.update(&format!("Encoding PDF file for {}...", action.to_lowercase()));
 
     // Read and encode PDF
     let pdf_data =
@@ -400,7 +473,7 @@ fn convert_pdf(pdf_path: &Path, config: &Config, notif: &NotificationManager) ->
 
     // Get prompt
     notif.update("Preparing API request...");
-    let prompt_text = get_prompt_text(config)?;
+    let prompt_text = get_prompt_text(config, mode)?;
 
     // Build request
     let pdf_filename = pdf_path
@@ -474,10 +547,19 @@ fn main() -> Result<()> {
     // Parse arguments
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
-        anyhow::bail!("No PDF file provided. Usage: kmarkdownify <pdf-file>");
+        anyhow::bail!("No PDF file provided. Usage: kmarkdownify [--solve] <pdf-file>");
     }
 
-    let pdf_path = Path::new(&args[1]);
+    // Check for mode flag
+    let (mode, pdf_arg_index) = if args.len() >= 3 && args[1] == "--solve" {
+        (Mode::Solve, 2)
+    } else if args[1] == "--solve" {
+        anyhow::bail!("No PDF file provided. Usage: kmarkdownify [--solve] <pdf-file>");
+    } else {
+        (Mode::Convert, 1)
+    };
+
+    let pdf_path = Path::new(&args[pdf_arg_index]);
 
     // Verify PDF
     verify_pdf(pdf_path)?;
@@ -485,33 +567,43 @@ fn main() -> Result<()> {
     // Load configuration
     let config = load_config()?;
 
-    // Generate output filename
-    let output_path = pdf_path.with_extension("md");
+    // Generate output filename with appropriate suffix
+    let output_path = if mode == Mode::Solve {
+        let stem = pdf_path.file_stem().and_then(|s| s.to_str()).unwrap_or("output");
+        pdf_path.with_file_name(format!("{}_solved.md", stem))
+    } else {
+        pdf_path.with_extension("md")
+    };
 
     // Check if output exists and get user confirmation
     if !check_overwrite(&output_path)? {
-        println!("Conversion cancelled by user.");
+        println!("Operation cancelled by user.");
         return Ok(());
     }
 
     // Initialize notification manager
     let mut notif = NotificationManager::new();
+    let action_title = match mode {
+        Mode::Convert => "Converting PDF to Markdown",
+        Mode::Solve => "Solving PDF Assignments",
+    };
     notif.show_loading(
         "KMarkdownify",
-        "Converting PDF to Markdown...\nThis may take a moment.",
+        &format!("{}...\nThis may take a moment.", action_title),
     );
 
-    // Convert PDF
-    match convert_pdf(pdf_path, &config, &notif) {
+    // Convert/Solve PDF
+    match convert_pdf(pdf_path, &config, mode, &notif) {
         Ok(markdown_content) => {
             notif.update(&format!("Saving to file: {:?}", output_path));
             fs::write(&output_path, markdown_content)
                 .with_context(|| format!("Failed to write output file: {:?}", output_path))?;
 
-            notif.success(&format!(
-                "✓ Conversion complete!\n\nSaved to: {:?}",
-                output_path
-            ));
+            let success_msg = match mode {
+                Mode::Convert => format!("✓ Conversion complete!\n\nSaved to: {:?}", output_path),
+                Mode::Solve => format!("✓ Solutions complete!\n\nSaved to: {:?}", output_path),
+            };
+            notif.success(&success_msg);
             Ok(())
         }
         Err(e) => {

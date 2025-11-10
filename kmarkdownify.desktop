@@ -2,7 +2,7 @@
 Type=Service
 ServiceTypes=KonqPopupMenu/Plugin
 MimeType=application/pdf;
-Actions=ConvertToMarkdown;
+Actions=ConvertToMarkdown;SolveAssignments;
 X-KDE-Priority=TopLevel
 X-KDE-Submenu=KMarkdownify
 X-KDE-Icon=document-edit
@@ -11,3 +11,8 @@ X-KDE-Icon=document-edit
 Name=Convert to Markdown
 Icon=text-markdown
 Exec=/usr/local/bin/kmarkdownify %f
+
+[Desktop Action SolveAssignments]
+Name=Solve Assignments
+Icon=tools-wizard
+Exec=/usr/local/bin/kmarkdownify --solve %f
