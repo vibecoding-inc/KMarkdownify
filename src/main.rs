@@ -281,125 +281,20 @@ fn get_prompt_text(config: &Config, mode: Mode) -> Result<String> {
     // If solve mode, use solve prompt
     if mode == Mode::Solve {
         let solve_prompt_path = prompts_dir.join("solve_prompt.txt");
-        if solve_prompt_path.exists() {
-            let mut prompt = fs::read_to_string(&solve_prompt_path)?;
-            prompt = prompt.replace("{METADATA_FIELDS}", &config.metadata_fields);
-            return Ok(prompt);
-        }
-
-        // Fallback inline solve prompt
-        return Ok(format!(
-            "Please analyze this PDF document which contains assignments, exercises, or problems to solve.\n\
-            \n\
-            First, extract the following metadata fields if present in the document: {}. If a field cannot be found, use 'N/A'.\n\
-            \n\
-            Then, extract all assignments, questions, or problems from the PDF, and provide COMPLETE SOLUTIONS for each one. Your response should:\n\
-            \n\
-            1. Clearly identify each question or problem\n\
-            2. Provide a detailed, step-by-step solution\n\
-            3. Show all work and reasoning\n\
-            4. Include final answers\n\
-            5. Format everything in clean, well-formatted Markdown\n\
-            \n\
-            IMPORTANT: \n\
-            - Extract the original question text EXACTLY as it appears\n\
-            - Provide comprehensive solutions with clear explanations\n\
-            - Use appropriate Markdown syntax (headings, lists, tables, code blocks, math notation)\n\
-            - For mathematical problems, use LaTeX notation within $ or $$ delimiters\n\
-            - For coding problems, include complete, working code in code blocks\n\
-            \n\
-            Format your response as follows:\n\
-            1. Start with YAML frontmatter containing the metadata (enclosed in --- delimiters)\n\
-            2. Follow with each question and its solution in Markdown format\n\
-            \n\
-            Only return the formatted output without any additional commentary.\n\
-            \n\
-            Example format:\n\
-            ---\n\
-            Title: Assignment Title or N/A\n\
-            Author: Student Name or N/A\n\
-            Course: Course Name or N/A\n\
-            Due Date: Date or N/A\n\
-            ---\n\
-            \n\
-            # Question 1\n\
-            \n\
-            [Original question text]\n\
-            \n\
-            ## Solution\n\
-            \n\
-            [Detailed solution with all steps and reasoning]\n\
-            \n\
-            **Answer:** [Final answer]\n\
-            \n\
-            # Question 2\n\
-            \n\
-            [Continue with next question...]",
-            config.metadata_fields
-        ));
-    }
-
-    if config.extract_metadata {
+        let mut prompt = fs::read_to_string(&solve_prompt_path)
+            .with_context(|| format!("Solve prompt file not found at {:?}. Please ensure kmarkdownify is properly installed.", solve_prompt_path))?;
+        prompt = prompt.replace("{METADATA_FIELDS}", &config.metadata_fields);
+        Ok(prompt)
+    } else if config.extract_metadata {
         let metadata_prompt_path = prompts_dir.join("metadata_prompt.txt");
-        if metadata_prompt_path.exists() {
-            let mut prompt = fs::read_to_string(&metadata_prompt_path)?;
-            prompt = prompt.replace("{METADATA_FIELDS}", &config.metadata_fields);
-            return Ok(prompt);
-        }
-
-        // Fallback inline metadata prompt
-        Ok(format!(
-            "Please analyze this PDF document and extract both metadata and content.\n\
-            \n\
-            First, extract the following metadata fields if present in the document: {}. If a field cannot be found, use 'N/A'.\n\
-            \n\
-            Then, extract all text content from the PDF and convert it to clean, well-formatted Markdown.\n\
-            \n\
-            IMPORTANT: Transcribe the content EXACTLY as it appears in the document, including any typos, spelling errors, or grammatical mistakes. Do not correct or modify the actual text content.\n\
-            \n\
-            You may improve the formatting by:\n\
-            - Using appropriate Markdown syntax (headings, lists, tables, etc.)\n\
-            - Adding code blocks for code snippets\n\
-            - Using emphasis (bold, italic) for highlighted text\n\
-            - Preserving document structure\n\
-            \n\
-            Format your response as follows:\n\
-            1. Start with YAML frontmatter containing the metadata (enclosed in --- delimiters)\n\
-            2. Follow with the main content in Markdown format\n\
-            \n\
-            Only return the formatted output without any explanations or additional commentary.\n\
-            \n\
-            Example format:\n\
-            ---\n\
-            Title: Document Title or N/A\n\
-            Author: Author Name or N/A\n\
-            Course: Course Name or N/A\n\
-            Due Date: Date or N/A\n\
-            ---\n\
-            \n\
-            # Document Content Starts Here\n\
-            ....",
-            config.metadata_fields
-        ))
+        let mut prompt = fs::read_to_string(&metadata_prompt_path)
+            .with_context(|| format!("Metadata prompt file not found at {:?}. Please ensure kmarkdownify is properly installed.", metadata_prompt_path))?;
+        prompt = prompt.replace("{METADATA_FIELDS}", &config.metadata_fields);
+        Ok(prompt)
     } else {
         let default_prompt_path = prompts_dir.join("default_prompt.txt");
-        if default_prompt_path.exists() {
-            return fs::read_to_string(&default_prompt_path)
-                .context("Failed to read default prompt file");
-        }
-
-        // Fallback inline default prompt
-        Ok("Please extract all text content from this PDF document and convert it to clean, well-formatted Markdown.\n\
-            \n\
-            IMPORTANT: Transcribe the content EXACTLY as it appears in the document, including any typos, spelling errors, or grammatical mistakes. Do not correct or modify the actual text content.\n\
-            \n\
-            You may improve the formatting by:\n\
-            - Using appropriate Markdown syntax (headings, lists, tables, etc.)\n\
-            - Adding code blocks for code snippets\n\
-            - Using emphasis (bold, italic) for highlighted text\n\
-            - Preserving document structure\n\
-            \n\
-            Only return the Markdown text without any explanations or additional commentary.".to_string())
+        fs::read_to_string(&default_prompt_path)
+            .with_context(|| format!("Default prompt file not found at {:?}. Please ensure kmarkdownify is properly installed.", default_prompt_path))
     }
 }
 
