@@ -7,6 +7,7 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::Duration;
 
 // Configuration structure
 #[derive(Debug, Default)]
@@ -15,6 +16,7 @@ struct Config {
     model: String,
     temperature: f32,
     max_tokens_per_page: u32,
+    timeout_per_page: u64,
     extract_metadata: bool,
     metadata_fields: String,
     custom_prompt: Option<String>,
@@ -217,6 +219,7 @@ fn load_config() -> Result<Config> {
         model: "mistralai/pixtral-large-latest".to_string(),
         temperature: 0.1,
         max_tokens_per_page: 8000,
+        timeout_per_page: 60,
         extract_metadata: true,
         metadata_fields: "Title,Author,Course,Due Date".to_string(),
         custom_prompt: None,
@@ -243,6 +246,7 @@ fn load_config() -> Result<Config> {
                     "MAX_TOKENS_PER_PAGE" => {
                         config.max_tokens_per_page = value.parse().unwrap_or(8000)
                     }
+                    "TIMEOUT_PER_PAGE" => config.timeout_per_page = value.parse().unwrap_or(60),
                     "EXTRACT_METADATA" => config.extract_metadata = value == "true",
                     "METADATA_FIELDS" => config.metadata_fields = value.to_string(),
                     "CUSTOM_PROMPT" => config.custom_prompt = Some(value.to_string()),
@@ -481,7 +485,19 @@ fn convert_pdf(
     // Make API request
     notif.update("Sending request to OpenRouter API...");
 
-    let client = Client::new();
+    // Calculate timeout based on page count
+    let timeout_seconds = page_count as u64 * config.timeout_per_page;
+    let timeout = Duration::from_secs(timeout_seconds);
+    println!(
+        "Using timeout of {} seconds ({} seconds per page × {} pages)",
+        timeout_seconds, config.timeout_per_page, page_count
+    );
+
+    let client = Client::builder()
+        .timeout(timeout)
+        .build()
+        .context("Failed to build HTTP client")?;
+
     let response = client
         .post("https://openrouter.ai/api/v1/chat/completions")
         .header("Content-Type", "application/json")

@@ -21,6 +21,16 @@ TEMPERATURE=0.1
 # - For solve mode: ~2/3 page worth of content per page (due to solutions)
 MAX_TOKENS_PER_PAGE=8000
 
+# Timeout per page in seconds
+# The total timeout will be calculated as: TIMEOUT_PER_PAGE * number_of_pages
+# This is especially important for reasoning models that may take longer
+# Default: 60 seconds per page (1 minute per page)
+# - Single page PDFs: 60 seconds timeout
+# - 5 page PDFs: 300 seconds (5 minutes) timeout
+# - 10 page PDFs: 600 seconds (10 minutes) timeout
+# Increase this value if using models that require more processing time
+TIMEOUT_PER_PAGE=60
+
 # Enable metadata extraction
 # When enabled, the system will attempt to extract document metadata
 # (Title, Author, Course, Due Date) and format it as YAML frontmatter

@@ -79,7 +79,8 @@ nano ~/.config/kmarkdownify/config
 Available options:
 - `MODEL` - AI model selection
 - `TEMPERATURE` - Output consistency (0.0-1.0)
-- `MAX_TOKENS` - Response length limit
+- `MAX_TOKENS_PER_PAGE` - Response length limit per page
+- `TIMEOUT_PER_PAGE` - API timeout in seconds per page (default: 60)
 - `EXTRACT_METADATA` - Enable/disable metadata extraction
 - `METADATA_FIELDS` - Fields to extract
 - `SYSTEM_PROMPT_FILE` - Custom prompt file path

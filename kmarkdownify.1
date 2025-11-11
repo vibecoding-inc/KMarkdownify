@@ -54,6 +54,12 @@ Model temperature from 0.0 to 1.0 (default: 0.1)
 .B MAX_TOKENS
 Maximum response length (default: 8000)
 .TP
+.B MAX_TOKENS_PER_PAGE
+Maximum tokens per page. Total tokens calculated as MAX_TOKENS_PER_PAGE × page count (default: 8000)
+.TP
+.B TIMEOUT_PER_PAGE
+Timeout in seconds per page. Total timeout calculated as TIMEOUT_PER_PAGE × page count (default: 60)
+.TP
 .B EXTRACT_METADATA
 Enable metadata extraction: true or false (default: true)
 .TP
@@ -142,7 +148,7 @@ Check your API key validity and available credits at https://openrouter.ai
 OpenRouter offers a free tier with credits for testing. Check current pricing at https://openrouter.ai/models
 .PP
 .B Performance:
-Conversion time depends on PDF size and complexity. Large documents may take several minutes to process.
+Conversion time depends on PDF size and complexity. Large documents may take several minutes to process. The default timeout is 60 seconds per page (e.g., 5 minutes for 5-page PDFs). Increase TIMEOUT_PER_PAGE in the config file for models that require more processing time, especially reasoning models.
 .PP
 .B Solve Mode:
 The solve feature uses AI to generate solutions. While it provides detailed step-by-step solutions, always verify the accuracy of results for critical work.
