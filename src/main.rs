@@ -246,9 +246,7 @@ fn load_config() -> Result<Config> {
                     "MAX_TOKENS_PER_PAGE" => {
                         config.max_tokens_per_page = value.parse().unwrap_or(8000)
                     }
-                    "TIMEOUT_PER_PAGE" => {
-                        config.timeout_per_page = value.parse().unwrap_or(60)
-                    }
+                    "TIMEOUT_PER_PAGE" => config.timeout_per_page = value.parse().unwrap_or(60),
                     "EXTRACT_METADATA" => config.extract_metadata = value == "true",
                     "METADATA_FIELDS" => config.metadata_fields = value.to_string(),
                     "CUSTOM_PROMPT" => config.custom_prompt = Some(value.to_string()),
