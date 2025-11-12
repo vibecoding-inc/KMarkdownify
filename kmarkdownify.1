@@ -1,21 +1,24 @@
 .TH KMARKDOWNIFY 1 "November 2025" "KMarkdownify 3.0" "User Commands"
 .SH NAME
-kmarkdownify \- Convert PDF files to Markdown or solve PDF assignments using AI
+kmarkdownify \- Convert PDF files to Markdown or solve PDF assignments using AI with real-time streaming
 .SH SYNOPSIS
 .B kmarkdownify
 [\fB\-\-solve\fR]
 .I FILE
 .SH DESCRIPTION
 .B kmarkdownify
-is a tool that converts PDF files to Markdown format or automatically solves assignments within PDF files using the OpenRouter API with Mistral's Pixtral Large OCR model. It integrates seamlessly with KDE Plasma's Dolphin file manager through a context menu service.
+is a tool that converts PDF files to Markdown format or automatically solves assignments within PDF files using the OpenRouter API with various AI models. It features real-time streaming output, showing content as it's generated with live progress updates. The tool integrates seamlessly with KDE Plasma's Dolphin file manager through a context menu service.
 .PP
 The tool can operate in two modes:
 .IP \(bu 2
 .B Convert mode
-(default): Extracts text from PDFs and converts to clean Markdown format with optional metadata extraction
+(default): Extracts text from PDFs and converts to clean Markdown format with optional metadata extraction. Uses OCR-optimized models for fast and accurate conversion.
 .IP \(bu 2
 .B Solve mode
-(\fB\-\-solve\fR): Analyzes assignment PDFs and provides complete solutions for all questions
+(\fB\-\-solve\fR): Analyzes assignment PDFs and provides complete solutions for all questions. Uses reasoning-optimized models for better problem-solving.
+.PP
+.B Real-time Streaming:
+Content is written to the output file as it's generated, with desktop notifications showing progress (word count and AI reasoning when available).
 .SH OPTIONS
 .TP
 .B \-\-solve
@@ -46,19 +49,25 @@ KDE service menu definition file for Dolphin integration.
 The configuration file (~/.config/kmarkdownify/config) supports the following options:
 .TP
 .B MODEL
-AI model to use (default: mistralai/pixtral-large-latest)
+Default/fallback AI model (default: mistralai/pixtral-large-latest). Used when OCR_MODEL or REASONING_MODEL are not specified.
+.TP
+.B OCR_MODEL
+AI model for convert mode, optimized for OCR tasks (optional). Examples: google/gemini-2.0-flash-lite (fast/cheap), mistralai/pixtral-large-latest (balanced).
+.TP
+.B REASONING_MODEL
+AI model for solve mode, optimized for reasoning tasks (optional). Examples: openai/gpt-4o-mini (balanced), anthropic/claude-3.5-sonnet (premium), deepseek/deepseek-r1 (specialized reasoning).
 .TP
 .B TEMPERATURE
 Model temperature from 0.0 to 1.0 (default: 0.1)
 .TP
 .B MAX_TOKENS
-Maximum response length (default: 8000)
+Maximum response length (default: 8000) - kept for backward compatibility
 .TP
 .B MAX_TOKENS_PER_PAGE
 Maximum tokens per page. Total tokens calculated as MAX_TOKENS_PER_PAGE × page count (default: 8000)
 .TP
 .B TIMEOUT_PER_PAGE
-Timeout in seconds per page. Total timeout calculated as TIMEOUT_PER_PAGE × page count (default: 60)
+Timeout in seconds per page. Total timeout calculated as TIMEOUT_PER_PAGE × page count (default: 60). Increase for reasoning models that require more processing time.
 .TP
 .B EXTRACT_METADATA
 Enable metadata extraction: true or false (default: true)
@@ -145,10 +154,27 @@ Check your API key validity and available credits at https://openrouter.ai
 .SH NOTES
 .PP
 .B API Costs:
-OpenRouter offers a free tier with credits for testing. Check current pricing at https://openrouter.ai/models
+OpenRouter offers a free tier with credits for testing. Costs vary by model:
+.PP
+OCR Models (Convert Mode):
+.br
+- google/gemini-2.0-flash-lite: Very cheap (~$0.01-0.02 per document)
+.br
+- mistralai/pixtral-large-latest: Moderate (~$0.05-0.15 per document)
+.PP
+Reasoning Models (Solve Mode):
+.br
+- openai/gpt-4o-mini: Affordable (~$0.10-0.30 per document)
+.br
+- anthropic/claude-3.5-sonnet: Premium (~$0.50-1.50 per document)
+.PP
+Check current pricing at https://openrouter.ai/models
 .PP
 .B Performance:
-Conversion time depends on PDF size and complexity. Large documents may take several minutes to process. The default timeout is 60 seconds per page (e.g., 5 minutes for 5-page PDFs). Increase TIMEOUT_PER_PAGE in the config file for models that require more processing time, especially reasoning models.
+Conversion time depends on PDF size and complexity. With streaming, you'll see content being generated in real-time. Desktop notifications show progress with word count and AI reasoning (for compatible models). The default timeout is 60 seconds per page (e.g., 5 minutes for 5-page PDFs). Increase TIMEOUT_PER_PAGE in the config file for models that require more processing time, especially reasoning models.
+.PP
+.B Model Selection:
+Choose different models for different tasks using OCR_MODEL (convert mode) and REASONING_MODEL (solve mode). OCR models are optimized for fast document conversion, while reasoning models excel at problem-solving.
 .PP
 .B Solve Mode:
 The solve feature uses AI to generate solutions. While it provides detailed step-by-step solutions, always verify the accuracy of results for critical work.
