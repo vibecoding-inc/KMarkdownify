@@ -1,19 +1,25 @@
 use anyhow::{Context, Result};
 use base64::{engine::general_purpose::STANDARD, Engine};
+use eventsource_stream::Eventsource;
+use futures_util::StreamExt;
 use notify_rust::{Notification, Timeout};
-use reqwest::blocking::Client;
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::env;
-use std::fs;
+use std::fs::{self, File};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 // Configuration structure
 #[derive(Debug, Default)]
 struct Config {
     api_key: String,
-    model: String,
+    model: String,                   // Fallback/default model
+    ocr_model: Option<String>,       // Model for convert mode
+    reasoning_model: Option<String>, // Model for solve mode
     temperature: f32,
     max_tokens_per_page: u32,
     timeout_per_page: u64,
@@ -37,6 +43,7 @@ struct ApiRequest {
     messages: Vec<Message>,
     temperature: f32,
     max_tokens: u32,
+    stream: bool,
 }
 
 #[derive(Serialize)]
@@ -75,9 +82,32 @@ struct MessageContent {
     content: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct ApiError {
     message: String,
+}
+
+// Streaming response structures
+#[derive(Deserialize, Debug)]
+struct StreamResponse {
+    id: Option<String>,
+    choices: Option<Vec<StreamChoice>>,
+    error: Option<ApiError>,
+}
+
+#[derive(Deserialize, Debug)]
+struct StreamChoice {
+    delta: StreamDelta,
+    #[serde(default)]
+    finish_reason: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
+struct StreamDelta {
+    #[serde(default)]
+    content: Option<String>,
+    #[serde(default)]
+    reasoning_content: Option<String>,
 }
 
 // Notification manager
@@ -116,6 +146,29 @@ impl NotificationManager {
             let _ = Notification::new()
                 .summary(&self.title)
                 .body(message)
+                .icon("process-working")
+                .timeout(Timeout::Never)
+                .id(id)
+                .show();
+        }
+    }
+
+    fn update_with_reasoning(&self, main_message: &str, reasoning: &str) {
+        println!("{}", main_message);
+        if !reasoning.is_empty() {
+            println!("Reasoning: {}", reasoning);
+        }
+
+        if let Some(id) = self.id {
+            let body = if reasoning.is_empty() {
+                main_message.to_string()
+            } else {
+                format!("{}\n\n💭 {}", main_message, reasoning)
+            };
+
+            let _ = Notification::new()
+                .summary(&self.title)
+                .body(&body)
                 .icon("process-working")
                 .timeout(Timeout::Never)
                 .id(id)
@@ -217,6 +270,8 @@ fn load_config() -> Result<Config> {
     let mut config = Config {
         api_key,
         model: "mistralai/pixtral-large-latest".to_string(),
+        ocr_model: None,
+        reasoning_model: None,
         temperature: 0.1,
         max_tokens_per_page: 8000,
         timeout_per_page: 60,
@@ -241,6 +296,8 @@ fn load_config() -> Result<Config> {
 
                 match key {
                     "MODEL" => config.model = value.to_string(),
+                    "OCR_MODEL" => config.ocr_model = Some(value.to_string()),
+                    "REASONING_MODEL" => config.reasoning_model = Some(value.to_string()),
                     "TEMPERATURE" => config.temperature = value.parse().unwrap_or(0.1),
                     "MAX_TOKENS" => config.max_tokens_per_page = value.parse().unwrap_or(8000), // Backwards compatibility
                     "MAX_TOKENS_PER_PAGE" => {
@@ -423,19 +480,23 @@ fn check_overwrite(output_path: &Path) -> Result<bool> {
     }
 }
 
-fn convert_pdf(
+async fn convert_pdf_streaming(
     pdf_path: &Path,
+    output_path: &Path,
     config: &Config,
     mode: Mode,
-    notif: &NotificationManager,
-) -> Result<String> {
+    notif: Arc<Mutex<NotificationManager>>,
+) -> Result<()> {
     let action = match mode {
         Mode::Convert => "Converting",
         Mode::Solve => "Solving",
     };
 
     // Count PDF pages
-    notif.update("Analyzing PDF file...");
+    {
+        let notif_guard = notif.lock().unwrap();
+        notif_guard.update("Analyzing PDF file...");
+    }
     let page_count = count_pdf_pages(pdf_path)?;
     let max_tokens = page_count * config.max_tokens_per_page;
     println!(
@@ -443,10 +504,13 @@ fn convert_pdf(
         page_count, max_tokens
     );
 
-    notif.update(&format!(
-        "Encoding PDF file for {}...",
-        action.to_lowercase()
-    ));
+    {
+        let notif_guard = notif.lock().unwrap();
+        notif_guard.update(&format!(
+            "Encoding PDF file for {}...",
+            action.to_lowercase()
+        ));
+    }
 
     // Read and encode PDF
     let pdf_data =
@@ -454,8 +518,19 @@ fn convert_pdf(
     let pdf_base64 = STANDARD.encode(&pdf_data);
 
     // Get prompt
-    notif.update("Preparing API request...");
+    {
+        let notif_guard = notif.lock().unwrap();
+        notif_guard.update("Preparing API request...");
+    }
     let prompt_text = get_prompt_text(config, mode)?;
+
+    // Select appropriate model based on mode
+    let selected_model = match mode {
+        Mode::Convert => config.ocr_model.as_ref().unwrap_or(&config.model),
+        Mode::Solve => config.reasoning_model.as_ref().unwrap_or(&config.model),
+    };
+
+    println!("Using model: {}", selected_model);
 
     // Build request
     let pdf_filename = pdf_path
@@ -465,9 +540,10 @@ fn convert_pdf(
         .to_string();
 
     let request = ApiRequest {
-        model: config.model.clone(),
+        model: selected_model.clone(),
         temperature: config.temperature,
         max_tokens,
+        stream: true,
         messages: vec![Message {
             role: "user".to_string(),
             content: vec![
@@ -483,7 +559,10 @@ fn convert_pdf(
     };
 
     // Make API request
-    notif.update("Sending request to OpenRouter API...");
+    {
+        let notif_guard = notif.lock().unwrap();
+        notif_guard.update("Sending request to OpenRouter API...");
+    }
 
     // Calculate timeout based on page count
     let timeout_seconds = page_count as u64 * config.timeout_per_page;
@@ -509,32 +588,127 @@ fn convert_pdf(
         .header("X-Title", "KMarkdownify")
         .json(&request)
         .send()
+        .await
         .context("Failed to send request to OpenRouter API")?;
 
-    let api_response: ApiResponse = response.json().context("Failed to parse API response")?;
-
-    // Check for errors
-    if let Some(error) = api_response.error {
-        anyhow::bail!("API Error: {}", error.message);
+    if !response.status().is_success() {
+        let error_text = response
+            .text()
+            .await
+            .unwrap_or_else(|_| "Unknown error".to_string());
+        anyhow::bail!("API request failed: {}", error_text);
     }
 
-    // Extract content
-    notif.update("Extracting markdown content...");
+    // Process streaming response
+    {
+        let notif_guard = notif.lock().unwrap();
+        notif_guard.update("Receiving and saving streamed response...");
+    }
 
-    let content = api_response
-        .choices
-        .and_then(|choices| choices.into_iter().next())
-        .map(|choice| choice.message.content)
-        .ok_or_else(|| anyhow::anyhow!("Failed to extract content from API response. The response may be empty or malformed."))?;
+    let mut file = File::create(output_path)
+        .with_context(|| format!("Failed to create output file: {:?}", output_path))?;
 
-    if content.is_empty() {
+    let mut stream = response.bytes_stream().eventsource();
+    let mut content_buffer = String::new();
+    let mut reasoning_buffer = String::new();
+    let mut last_update = std::time::Instant::now();
+
+    while let Some(event_result) = stream.next().await {
+        match event_result {
+            Ok(event) => {
+                if event.data == "[DONE]" {
+                    break;
+                }
+
+                match serde_json::from_str::<StreamResponse>(&event.data) {
+                    Ok(stream_resp) => {
+                        // Check for errors
+                        if let Some(error) = stream_resp.error {
+                            anyhow::bail!("API Error: {}", error.message);
+                        }
+
+                        // Process choices
+                        if let Some(choices) = stream_resp.choices {
+                            for choice in choices {
+                                // Handle regular content
+                                if let Some(content) = choice.delta.content {
+                                    content_buffer.push_str(&content);
+                                    file.write_all(content.as_bytes())
+                                        .context("Failed to write to output file")?;
+                                    file.flush().context("Failed to flush output file")?;
+                                }
+
+                                // Handle reasoning content
+                                if let Some(reasoning) = choice.delta.reasoning_content {
+                                    reasoning_buffer.push_str(&reasoning);
+                                }
+
+                                // Update notification periodically (every 2 seconds)
+                                if last_update.elapsed() > Duration::from_secs(2) {
+                                    let words_written = content_buffer.split_whitespace().count();
+                                    let notif_guard = notif.lock().unwrap();
+
+                                    // Extract a brief summary from reasoning for notification
+                                    let reasoning_summary = if !reasoning_buffer.is_empty() {
+                                        // Get the last line or first 50 chars of reasoning
+                                        reasoning_buffer
+                                            .lines()
+                                            .last()
+                                            .unwrap_or(&reasoning_buffer)
+                                            .chars()
+                                            .take(50)
+                                            .collect::<String>()
+                                    } else {
+                                        String::new()
+                                    };
+
+                                    notif_guard.update_with_reasoning(
+                                        &format!("Streaming... ({} words written)", words_written),
+                                        &reasoning_summary,
+                                    );
+                                    last_update = std::time::Instant::now();
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!(
+                            "Warning: Failed to parse stream event: {} (data: {})",
+                            e, event.data
+                        );
+                        // Continue processing other events
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("Warning: Stream error: {}", e);
+                // Try to preserve partial output
+                if !content_buffer.is_empty() {
+                    eprintln!("Partial content was saved to the output file.");
+                }
+                anyhow::bail!("Stream error: {}", e);
+            }
+        }
+    }
+
+    if content_buffer.is_empty() {
         anyhow::bail!("API returned empty content");
     }
 
-    Ok(content)
+    // Final flush
+    file.flush().context("Failed to flush output file")?;
+
+    let words_written = content_buffer.split_whitespace().count();
+    println!(
+        "✓ Streaming complete! {} words written to {:?}",
+        words_written, output_path
+    );
+
+    Ok(())
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     // Check dependencies
     check_dependencies()?;
 
@@ -589,22 +763,25 @@ fn main() -> Result<()> {
         &format!("{}...\nThis may take a moment.", action_title),
     );
 
-    // Convert/Solve PDF
-    match convert_pdf(pdf_path, &config, mode, &notif) {
-        Ok(markdown_content) => {
-            notif.update(&format!("Saving to file: {:?}", output_path));
-            fs::write(&output_path, markdown_content)
-                .with_context(|| format!("Failed to write output file: {:?}", output_path))?;
+    let notif_arc = Arc::new(Mutex::new(notif));
+    let notif_clone = Arc::clone(&notif_arc);
 
+    // Convert/Solve PDF with streaming
+    match convert_pdf_streaming(pdf_path, &output_path, &config, mode, notif_clone).await {
+        Ok(()) => {
+            let mut notif_guard = notif_arc.lock().unwrap();
             let success_msg = match mode {
                 Mode::Convert => format!("✓ Conversion complete!\n\nSaved to: {:?}", output_path),
                 Mode::Solve => format!("✓ Solutions complete!\n\nSaved to: {:?}", output_path),
             };
-            notif.success(&success_msg);
+            notif_guard.success(&success_msg);
+            // Prevent drop handler from showing error
+            notif_guard.id = None;
             Ok(())
         }
         Err(e) => {
-            notif.error(&format!("{:#}", e));
+            let mut notif_guard = notif_arc.lock().unwrap();
+            notif_guard.error(&format!("{:#}", e));
             Err(e)
         }
     }

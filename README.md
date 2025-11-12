@@ -1,17 +1,19 @@
 # KMarkdownify
 
-Convert PDF files to Markdown or automatically solve assignments using AI-powered OCR.
+Convert PDF files to Markdown or automatically solve assignments using AI-powered OCR with real-time streaming.
 
 ## Features
 
 - 📄 **Convert PDFs to Markdown** - Extract and format text content with proper structure
 - 🎓 **Solve Assignments** - Automatically solve problems in PDFs with detailed solutions  
-- 🤖 **AI-Powered** - Uses Mistral's Pixtral Large OCR model via OpenRouter API
+- 🤖 **AI-Powered** - Uses various OpenRouter models optimized for OCR and reasoning
+- 🌊 **Real-time Streaming** - See content as it's generated with live progress updates
+- 💭 **Reasoning Display** - View AI reasoning process in notifications (for compatible models)
 - 🐬 **Dolphin Integration** - Right-click context menu for seamless workflow
 - 📊 **Metadata Extraction** - Auto-extracts Title, Author, Course, Due Date to YAML frontmatter
 - ⚙️ **Highly Configurable** - Customize models, prompts, temperature, and more
 - 🦀 **Rust Implementation** - Memory-safe, fast, and reliable
-- 🔔 **Desktop Notifications** - Real-time progress updates
+- 🔔 **Desktop Notifications** - Real-time progress updates with word count and reasoning
 
 ## Installation (Arch Linux)
 
@@ -77,7 +79,9 @@ nano ~/.config/kmarkdownify/config
 ```
 
 Available options:
-- `MODEL` - AI model selection
+- `MODEL` - Default/fallback AI model
+- `OCR_MODEL` - Model for convert mode (optimized for OCR)
+- `REASONING_MODEL` - Model for solve mode (optimized for reasoning)
 - `TEMPERATURE` - Output consistency (0.0-1.0)
 - `MAX_TOKENS_PER_PAGE` - Response length limit per page
 - `TIMEOUT_PER_PAGE` - API timeout in seconds per page (default: 60)
@@ -85,6 +89,21 @@ Available options:
 - `METADATA_FIELDS` - Fields to extract
 - `SYSTEM_PROMPT_FILE` - Custom prompt file path
 - `CUSTOM_PROMPT` - Inline custom prompt
+
+### Model Selection
+
+You can configure different models for different tasks:
+
+- **OCR_MODEL**: Used for `kmarkdownify <file.pdf>` (convert mode)
+  - Recommended: `google/gemini-2.0-flash-lite` (fast, cheap)
+  - Default: `mistralai/pixtral-large-latest` (balanced)
+
+- **REASONING_MODEL**: Used for `kmarkdownify --solve <file.pdf>` (solve mode)
+  - Recommended: `openai/gpt-4o-mini` (good reasoning)
+  - Alternative: `anthropic/claude-3.5-sonnet` (excellent quality)
+  - Alternative: `deepseek/deepseek-r1` (specialized reasoning)
+
+If not specified, both fall back to `MODEL` setting.
 
 ## Example Output
 
@@ -140,11 +159,17 @@ Apply the power rule to each term:
 
 ## API Costs
 
-OpenRouter offers a free tier. Mistral Pixtral Large pricing:
-- Small PDFs (1-5 pages): ~$0.01-0.05
-- Medium PDFs (10-20 pages): ~$0.10-0.20
+OpenRouter offers a free tier. Pricing varies by model:
 
-Check current pricing at [OpenRouter Models](https://openrouter.ai/models)
+**OCR Models (Convert Mode):**
+- `google/gemini-2.0-flash-lite`: Very cheap (~$0.01-0.02 per document)
+- `mistralai/pixtral-large-latest`: Moderate (~$0.05-0.15 per document)
+
+**Reasoning Models (Solve Mode):**
+- `openai/gpt-4o-mini`: Affordable (~$0.10-0.30 per document)
+- `anthropic/claude-3.5-sonnet`: Premium (~$0.50-1.50 per document)
+
+Costs depend on document size and complexity. Check current pricing at [OpenRouter Models](https://openrouter.ai/models)
 
 ## Documentation
 
