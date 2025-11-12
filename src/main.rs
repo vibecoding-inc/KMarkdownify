@@ -66,17 +66,20 @@ struct FileData {
 }
 
 // API response structures
+#[allow(dead_code)]
 #[derive(Deserialize)]
 struct ApiResponse {
     choices: Option<Vec<Choice>>,
     error: Option<ApiError>,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize)]
 struct Choice {
     message: MessageContent,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize)]
 struct MessageContent {
     content: String,
@@ -90,6 +93,7 @@ struct ApiError {
 // Streaming response structures
 #[derive(Deserialize, Debug)]
 struct StreamResponse {
+    #[allow(dead_code)]
     id: Option<String>,
     choices: Option<Vec<StreamChoice>>,
     error: Option<ApiError>,
@@ -99,6 +103,7 @@ struct StreamResponse {
 struct StreamChoice {
     delta: StreamDelta,
     #[serde(default)]
+    #[allow(dead_code)]
     finish_reason: Option<String>,
 }
 
