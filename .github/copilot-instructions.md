@@ -2,30 +2,33 @@
 
 ## Project Overview
 
-KMarkdownify is a KDE Plasma Dolphin service menu integration that converts PDF files to Markdown format using the OpenRouter API with Mistral's Pixtral Large OCR model. The project is designed to be lightweight, secure, and easy to install on Linux distributions, with special support for Arch Linux via PKGBUILD.
+KMarkdownify is a KDE Plasma Dolphin service menu integration that converts PDF files to Markdown format using the OpenRouter API with various AI models. The project is implemented in Rust, designed to be lightweight, secure, and easy to install on Linux distributions, with special support for Arch Linux via PKGBUILD.
 
 ## Architecture
 
 The project consists of three main components:
 
-1. **kmarkdownify.sh** - A Bash script that handles PDF conversion via the OpenRouter API
+1. **src/main.rs** - Rust application that handles PDF conversion via OpenRouter API with streaming support
 2. **kmarkdownify.desktop** - A KDE service menu entry for Dolphin file manager integration
 3. **PKGBUILD** - An Arch Linux package build script for easy installation
 
 ## Code Style and Standards
 
-### Bash Scripting
-- Use strict error handling: `set -euo pipefail`
-- Quote all variable expansions to prevent word splitting
-- Use functions for error handling and notifications with dual fallback (kdialog → notify-send)
+### Rust Development
+- Follow Rust idioms and best practices
+- Use `anyhow` for error handling with context
+- Use `tokio` for async runtime
+- Implement proper error handling with `Result` types
+- Use structured logging with `println!` and `eprintln!`
+- Run `cargo fmt` before committing
+- Run `cargo clippy` to catch common mistakes
+- Use `serde` for JSON serialization/deserialization
 - Validate all inputs before processing
-- Use `jq` for JSON construction to prevent injection attacks
-- Never use `eval` or command substitution with user input
-- Disable pagers in commands (e.g., `git --no-pager`)
+- Never log, display, or commit API keys
 
 ### Documentation
-- Maintain comprehensive documentation in README.md, INSTALL.md, and QUICKSTART.md
-- Keep IMPLEMENTATION_NOTES.md updated with technical decisions and architecture changes
+- Maintain comprehensive documentation in README.md and config.example
+- Keep man page (kmarkdownify.1) updated with current features
 - Include troubleshooting sections for common issues
 - Provide examples for all major use cases
 
@@ -33,12 +36,13 @@ The project consists of three main components:
 
 ### When Making Changes
 
-1. **Script Changes (kmarkdownify.sh)**
-   - Test with `bash -n kmarkdownify.sh` for syntax errors
-   - Run `shellcheck kmarkdownify.sh` for best practices
-   - Verify error handling paths work correctly
+1. **Rust Code Changes (src/main.rs)**
+   - Run `cargo build` to check for compilation errors
+   - Run `cargo fmt` to format code
+   - Run `cargo clippy` for linting suggestions
    - Test with various PDF files (small, large, corrupted)
-   - Ensure backward compatibility with API key configuration
+   - Ensure backward compatibility with configuration files
+   - Test both streaming and error handling paths
 
 2. **Service Menu Changes (kmarkdownify.desktop)**
    - Validate desktop file format with `desktop-file-validate`
@@ -51,19 +55,28 @@ The project consists of three main components:
    - Update version numbers and checksums
    - Test installation: `makepkg -si`
    - Verify all files are installed to correct locations
+   - Ensure Rust toolchain is available during build
 
 ### Dependencies
 
-**Required:**
-- bash (4.0+)
-- curl (7.x+)
-- jq (1.5+)
-- coreutils (base64)
-- file (MIME type detection)
+**Build Dependencies:**
+- rust (1.70+)
+- cargo
 
-**Optional:**
-- kdialog (KDE notifications)
-- libnotify (fallback notifications)
+**Runtime Dependencies:**
+- file (MIME type detection)
+- poppler-utils (optional, for accurate page counting)
+
+**Rust Crate Dependencies:**
+- reqwest (HTTP client with streaming)
+- serde & serde_json (JSON handling)
+- base64 (PDF encoding)
+- anyhow (error handling)
+- notify-rust (desktop notifications)
+- dirs (config directory detection)
+- tokio (async runtime)
+- eventsource-stream (SSE streaming)
+- futures-util (async utilities)
 
 ## Security Considerations
 
@@ -76,31 +89,40 @@ The project consists of three main components:
 ### Input Validation
 - Always validate file existence and type before processing
 - Use `file` command to verify PDF MIME type
-- Properly quote all file paths
-- Use `jq` for JSON construction, never string interpolation
+- Properly handle all paths with Rust's PathBuf
+- Use `serde_json` for safe JSON construction
 
 ### Network Security
 - Use HTTPS-only communication
 - Include proper HTTP headers (Referer, X-Title)
 - Never include sensitive data in URLs or query parameters
+- Handle streaming errors gracefully
 
 ## Testing
 
 ### Before Committing
-1. Run syntax validation: `bash -n kmarkdownify.sh`
-2. Run shellcheck: `shellcheck kmarkdownify.sh`
-3. Test error cases:
+1. Run build: `cargo build`
+2. Run formatter: `cargo fmt`
+3. Run linter: `cargo clippy`
+4. Test error cases:
    - No arguments provided
    - Non-existent file
    - Non-PDF file
    - Missing API key
    - Empty API key file
-4. Test successful conversion with a sample PDF
+5. Test successful conversion with a sample PDF
+6. Test streaming with large PDFs
 
 ### Manual Testing
 ```bash
+# Build in release mode
+cargo build --release
+
 # Test command line usage
-./kmarkdownify.sh /path/to/test.pdf
+./target/release/kmarkdownify /path/to/test.pdf
+
+# Test solve mode
+./target/release/kmarkdownify --solve /path/to/homework.pdf
 
 # Verify output
 cat /path/to/test.md
@@ -113,55 +135,85 @@ cat /path/to/test.md
 
 ### OpenRouter API Details
 - **Endpoint:** `https://openrouter.ai/api/v1/chat/completions`
-- **Model:** `mistralai/pixtral-large-latest`
-- **Input Format:** Base64-encoded PDF in image_url field
+- **Streaming:** Enabled with `stream: true` parameter
+- **Default Model:** `mistralai/pixtral-large-latest`
+- **Input Format:** Base64-encoded PDF in file field
 - **Temperature:** 0.1 (low for consistent OCR)
-- **Max Tokens:** 8000
+- **Max Tokens:** Calculated as pages × MAX_TOKENS_PER_PAGE
+
+### Streaming Implementation
+The application uses Server-Sent Events (SSE) streaming:
+- Writes content to file in real-time as it's received
+- Updates notifications with progress (word count, reasoning)
+- Handles partial failures gracefully
+- Preserves partial output on errors
+
+### Model Selection
+- **Convert Mode:** Uses `OCR_MODEL` or falls back to `MODEL`
+  - Optimized for fast, accurate document conversion
+  - Example: `google/gemini-2.0-flash-lite`
+  
+- **Solve Mode:** Uses `REASONING_MODEL` or falls back to `MODEL`
+  - Optimized for problem-solving and reasoning
+  - Example: `openai/gpt-4o-mini`, `deepseek/deepseek-r1`
 
 ### Request Structure
-The script sends a POST request with:
+The application sends a POST request with:
 - Authorization: Bearer token
 - Content-Type: application/json
 - HTTP-Referer: GitHub repository URL
 - X-Title: KMarkdownify
+- stream: true (for streaming responses)
+
+### Response Handling
+- Parse SSE stream events
+- Extract content and reasoning_content from deltas
+- Update notification with reasoning headings when available
+- Write content incrementally to output file
+- Handle [DONE] event to close stream
 
 ### Error Handling
 - Check for API error responses in JSON
-- Extract error messages from `.error.message` or `.error`
+- Extract error messages from `.error.message`
 - Provide user-friendly error notifications
+- Preserve partial output on stream errors
 - Exit gracefully with appropriate exit codes
 
 ## File Locations
 
 ### Installation Paths
-- Script: `/usr/local/bin/kmarkdownify.sh` (mode 755)
+- Binary: `/usr/bin/kmarkdownify` (mode 755)
 - Service menu (system-wide): `/usr/share/kio/servicemenus/kmarkdownify.desktop`
 - Service menu (user-only): `~/.local/share/kio/servicemenus/kmarkdownify.desktop`
 - Documentation: `/usr/share/doc/kmarkdownify/`
+- Prompt files: `/usr/share/kmarkdownify/prompts/`
+- Man page: `/usr/share/man/man1/kmarkdownify.1.gz`
 
 ### Configuration
 - API key: `~/.config/kmarkdownify/api_key`
+- Config file: `~/.config/kmarkdownify/config`
 
 ## Common Tasks
 
 ### Adding New Features
-1. Update the main script (kmarkdownify.sh)
+1. Update the main Rust code (src/main.rs)
 2. Add documentation to README.md
-3. Update IMPLEMENTATION_NOTES.md with technical details
-4. Test thoroughly before committing
-5. Update version in PKGBUILD if needed
+3. Update config.example with new options
+4. Update man page (kmarkdownify.1)
+5. Test thoroughly before committing
+6. Update version in PKGBUILD and Cargo.toml if needed
 
 ### Fixing Bugs
-1. Identify the root cause in kmarkdownify.sh
+1. Identify the root cause in src/main.rs
 2. Add validation or error handling as needed
 3. Test the fix with various scenarios
 4. Update troubleshooting section in documentation
 
 ### Improving Documentation
 1. Keep README.md user-focused and concise
-2. Put technical details in IMPLEMENTATION_NOTES.md
-3. Update QUICKSTART.md for getting started quickly
-4. Keep INSTALL.md comprehensive for all distributions
+2. Keep config.example comprehensive with examples
+3. Update man page for detailed reference
+4. Include examples for all features
 
 ## Distribution Support
 
@@ -169,20 +221,20 @@ The script sends a POST request with:
 - Arch Linux (via PKGBUILD)
 
 ### Manual Installation Support
-- Debian/Ubuntu
-- Fedora
-- openSUSE
-- Any Linux distribution with KDE Plasma
+- Any Linux distribution with:
+  - Rust toolchain (for building)
+  - KDE Plasma with Dolphin
+  - Standard utilities (file, curl)
 
 ## Future Enhancements to Consider
 
 When suggesting new features, consider:
 - Batch processing multiple PDFs
-- Progress indicators for large files
+- Enhanced progress indicators
 - Custom output path selection
-- Model selection options
-- Quality/parameter adjustments
-- Retry logic for API failures
+- Additional model provider support
+- Quality/parameter adjustments per mode
+- Advanced retry logic for API failures
 - Caching to avoid re-processing
 - GUI configuration tool
 - Language detection and optimization
@@ -192,17 +244,20 @@ When suggesting new features, consider:
 
 - [KDE Service Menus Documentation](https://userbase.kde.org/Dolphin/File_Management#Service_Menus)
 - [OpenRouter API Documentation](https://openrouter.ai/docs)
-- [Mistral AI Documentation](https://docs.mistral.ai/)
+- [OpenRouter Streaming Documentation](https://openrouter.ai/docs/api-reference/streaming)
 - [Arch Linux PKGBUILD Manual](https://wiki.archlinux.org/title/PKGBUILD)
-- [Bash Best Practices](https://google.github.io/styleguide/shellguide.html)
+- [Rust Best Practices](https://rust-lang.github.io/api-guidelines/)
 
 ## Notes for AI Assistants
 
 When working on this repository:
-- This is a bash-based project, not a typical software application with unit tests
-- Focus on shell scripting best practices and security
+- This is a Rust project using async/await with tokio
+- Focus on Rust best practices and memory safety
 - Test changes manually with actual PDF files when possible
 - Consider cross-distribution compatibility
 - Maintain the simplicity and lightweight nature of the tool
-- Always validate bash syntax and run shellcheck before committing
+- Always run `cargo fmt` and `cargo clippy` before committing
 - Remember that this integrates with KDE Plasma, so consider KDE-specific behaviors
+- Streaming is now the primary mode of operation
+- Support both OCR and reasoning model configurations
+- Handle reasoning tokens appropriately for compatible models

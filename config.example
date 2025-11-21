@@ -2,10 +2,28 @@
 # This file should be copied to ~/.config/kmarkdownify/config
 # and customized according to your needs.
 
-# OpenRouter API Model
+# OpenRouter API Model (Fallback/Default)
+# This model is used when OCR_MODEL or REASONING_MODEL are not specified
 # Default: mistralai/pixtral-large-latest (optimized for OCR)
-# Other options: anthropic/claude-3-opus, openai/gpt-4-vision-preview
 MODEL=mistralai/pixtral-large-latest
+
+# OCR Model (for Convert Mode)
+# Optimized for fast and accurate OCR/document conversion tasks
+# This model is used when running kmarkdownify without --solve flag
+# Examples:
+#   - google/gemini-2.0-flash-lite (fast and cheap)
+#   - mistralai/pixtral-large-latest (high quality, balanced)
+#   - anthropic/claude-3-opus (premium quality)
+# OCR_MODEL=google/gemini-2.0-flash-lite
+
+# Reasoning Model (for Solve Mode) 
+# Optimized for problem-solving and reasoning tasks
+# This model is used when running kmarkdownify with --solve flag
+# Examples:
+#   - openai/gpt-4o-mini (good balance of speed and quality)
+#   - anthropic/claude-3.5-sonnet (excellent reasoning)
+#   - deepseek/deepseek-r1 (specialized reasoning model)
+# REASONING_MODEL=openai/gpt-4o-mini
 
 # API Temperature (0.0-1.0)
 # Lower values = more deterministic/consistent output
